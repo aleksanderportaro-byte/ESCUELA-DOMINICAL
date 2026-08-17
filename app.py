@@ -423,8 +423,9 @@ def admin_classes():
             assignment_type = request.form['assignment_type']
             session_date = request.form.get('session_date') if assignment_type == 'temporary' else None
 
-            u_id = user_id if user_id else None
-            c_name = custom_teacher_name if not user_id else None
+            # Convertir cadena vacía a None de forma segura para la base de datos
+            u_id = int(user_id) if user_id and user_id.isdigit() else None
+            c_name = custom_teacher_name if not u_id else None
 
             cur.execute("""
                 INSERT INTO class_teachers (class_id, user_id, custom_teacher_name, assignment_type, session_date)
@@ -464,18 +465,20 @@ def delete_class(class_id):
 def admin_teachers():
     if 'user' not in session or session['user']['role'] != 'admin':
         flash('Acceso restringido solo al Administrador.', 'danger')
-        
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
 
     if request.method == 'POST':
         if 'update_user' in request.form:
             user_id = request.form['user_id']
             new_role = request.form['role']
             new_position = request.form['position']
-            
             cur.execute("UPDATE users SET role = %s, position = %s WHERE id = %s", (new_role, new_position, user_id))
             conn.commit()
             flash('Datos y cargo del usuario actualizados con éxito.', 'success')
-            
+
         elif 'delete_user' in request.form:
             user_id = request.form['user_id']
             if int(user_id) != session['user']['id']:
@@ -487,10 +490,9 @@ def admin_teachers():
 
     cur.execute("SELECT id, name, email, role, position FROM users ORDER BY name ASC;")
     teachers = cur.fetchall()
-    
+
     cur.close()
     conn.close()
-    
     return render_template('admin_teachers.html', teachers=teachers)
 
 @app.route('/admin/attendance-stats', methods=['GET', 'POST'])
