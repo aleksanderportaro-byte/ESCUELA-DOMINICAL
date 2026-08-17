@@ -458,26 +458,14 @@ def delete_class(class_id):
     flash('Clase eliminada correctamente.', 'success')
     return redirect(url_for('admin_classes'))
 
+
 # GESTIÓN DE PERSONAL Y CARGOS (Solo Admin)
 @app.route('/admin/teachers', methods=['GET', 'POST'])
 def admin_teachers():
     if 'user' not in session or session['user']['role'] != 'admin':
         flash('Acceso restringido solo al Administrador.', 'danger')
-        return redirect(url_fo@app.route('/delete_class/<int:class_id>', methods=['POST'])
-def delete_class(class_id):
-    if 'user' not in session or session['user']['role'] != 'admin':
-        flash('Acceso restringido.', 'danger')
-        return redirect(url_for('dashboard'))
+        
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM classes WHERE id = %s", (class_id,))
-    conn.commit()
-    cur.close()
-    conn.close()
-    flash('Clase eliminada correctamente.', 'success')
-    return redirect(url_for('admin_classes'))
-    
     if request.method == 'POST':
         if 'update_user' in request.form:
             user_id = request.form['user_id']
