@@ -379,18 +379,33 @@ def admin_attendance():
 def edit_student_class(student_id):
     clase_id = request.form.get('clase_id')
     
-    # Convertir cadena vacía a None para evitar errores en la base de datos
-    if not clase_id:
-        clase_id = None
+    # Imprimir en consola de Render para depurar
+    print(f"DEBUG: Intentando actualizar estudiante ID {student_id} a clase ID {clase_id}")
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE students SET clase_id = %s WHERE id = %s", (clase_id, student_id))
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    flash('Clase del alumno actualizada con éxito.', 'success')
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Convertir a entero o None
+        val = int(clase_id) if (clase_id and clase_id.isdigit()) else None
+        
+        # Ejecutar actualización
+        cur.execute("UPDATE students SET clase_id = %s WHERE id = %s", (val, student_id))
+        
+        # Verificar si realmente se actualizó algo
+        if cur.rowcount == 0:
+            print(f"ERROR: No se encontró al estudiante con ID {student_id}")
+            flash('Error: No se encontró el alumno en la base de datos.', 'danger')
+        else:
+            conn.commit()
+            flash('Clase actualizada con éxito.', 'success')
+            
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"ERROR CRÍTICO: {str(e)}")
+        flash(f'Error al guardar: {str(e)}', 'danger')
+
     return redirect(url_for('admin_attendance'))
 
 @app.route('/delete_student/<int:student_id>', methods=['POST'])
