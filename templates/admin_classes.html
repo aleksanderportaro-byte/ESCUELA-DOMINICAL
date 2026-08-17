@@ -91,6 +91,43 @@
             </div>
         </div>
     </div>
+
+    <!-- Lista de Clases Registradas -->
+<div class="mt-8 bg-slate-50 p-4 rounded-lg border">
+    <h3 class="font-bold text-lg mb-4 text-slate-700">Clases Registradas</h3>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-200 text-slate-700">
+                    <th class="p-2 border">Nombre de la Clase</th>
+                    <th class="p-2 border">Descripción</th>
+                    <th class="p-2 border text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for clase in clases %}
+                <tr class="border-b hover:bg-slate-100">
+                    <td class="p-2 border">{{ clase.name }}</td>
+                    <td class="p-2 border">{{ clase.description }}</td>
+                    <td class="p-2 border text-center">
+                        <!-- ENLACE CLAVE PARA VER LA ASISTENCIA DE ESTA CLASE -->
+                        <a href="{{ url_for('ver_asistencia_clase', clase_id=clase.id) }}" 
+                           class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                            Ver Asistencia
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="p-4 text-center text-slate-500">No hay clases registradas todavía.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
     <script>
         function toggleDate(val) {
             document.getElementById('date_field').style.display = val === 'temporary' ? 'block' : 'none';
