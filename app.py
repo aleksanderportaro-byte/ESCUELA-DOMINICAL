@@ -339,8 +339,7 @@ def admin_attendance():
             flash('Asistencia guardada correctamente.', 'success')
 
     cur.execute(
-        "SELECT id, first_name, last_name, clase_id FROM students ORDER BY last_name ASC,",
-        " first_name ASC;"
+        "SELECT id, first_name, last_name, clase_id FROM students ORDER BY last_name ASC, first_name ASC;"
     )
     students = cur.fetchall()
 
