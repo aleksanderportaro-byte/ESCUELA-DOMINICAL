@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calendario - Escuela Dominical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-6">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-slate-800">Calendario de Clases del Mes</h1>
+            <a href="/dashboard" class="text-blue-600 hover:underline">← Volver al Panel</a>
+        </div>
+
+        {% if session['user']['role'] == 'admin' %}
+        <form method="POST" class="bg-slate-50 p-4 rounded-lg mb-6 border grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="text" name="month" placeholder="Mes (ej. Agosto 2026)" required class="border p-2 rounded">
+            <input type="date" name="scheduled_date" required class="border p-2 rounded">
+            <input type="text" name="title" placeholder="Título de la Clase" required class="border p-2 rounded">
+            <input type="url" name="meeting_link" placeholder="Link de recursos / clase" class="border p-2 rounded">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded md:col-span-2 hover:bg-blue-700">Programar Clase</button>
+        </form>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for c in classes %}
+            <div class="border p-4 rounded-lg shadow-sm bg-slate-50">
+                <span class="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded">{{ c.month }} - {{ c.scheduled_date }}</span>
+                <h3 class="font-bold text-lg mt-2 text-slate-800">{{ c.title }}</h3>
+                {% if c.meeting_link %}
+                <a href="{{ c.meeting_link }}" target="_blank" class="text-blue-500 text-sm hover:underline block mt-2">Ver Link / Materiales ↗</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

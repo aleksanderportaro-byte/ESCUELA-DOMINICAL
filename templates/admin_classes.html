@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Clases - Escuela Dominical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-6">
+    <div class="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-slate-800">📚 Administración de Clases y Maestros</h1>
+            <a href="/dashboard" class="text-blue-600 hover:underline">← Volver al Panel</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="p-4 mb-4 rounded bg-{{ 'green' if category=='success' else 'red' }}-100 text-{{ 'green' if category=='success' else 'red' }}-700">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Formulario Crear Clase -->
+            <div class="bg-slate-50 p-4 rounded-lg border">
+                <h2 class="font-bold text-lg mb-3 text-slate-700">Crear Nueva Clase</h2>
+                <form method="POST" class="space-y-3">
+                    <input type="hidden" name="create_class" value="1">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600">Nombre de la Clase</label>
+                        <input type="text" name="name" required class="w-full border p-2 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600">Descripción</label>
+                        <textarea name="description" class="w-full border p-2 rounded"></textarea>
+                    </div>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Crear Clase</button>
+                </form>
+            </div>
+
+            <!-- Formulario Asignar Maestro -->
+            <div class="bg-slate-50 p-4 rounded-lg border">
+                <h2 class="font-bold text-lg mb-3 text-slate-700">Asignar Maestro a Clase</h2>
+                <form method="POST" class="space-y-3">
+                    <input type="hidden" name="assign_teacher" value="1">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600">Seleccionar Clase</label>
+                        <select name="class_id" required class="w-full border p-2 rounded">
+                            {% for c in classes %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600">Seleccionar Maestro</label>
+                        <select name="user_id" required class="w-full border p-2 rounded">
+                            {% for t in teachers %}
+                            <option value="{{ t.id }}">{{ t.name }} ({{ t.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600">Tipo de Asignación</label>
+                        <select name="assignment_type" id="assignment_type" class="w-full border p-2 rounded" onchange="toggleDate(this.value)">
+                            <option value="permanent">Permanente</option>
+                            <option value="temporary">Solo por una clase (Fecha específica)</option>
+                        </select>
+                    </div>
+                    <div id="date_field" style="display:none;">
+                        <label class="block text-sm font-medium text-slate-600">Fecha de la Clase</label>
+                        <input type="date" name="session_date" class="w-full border p-2 rounded">
+                    </div>
+                    <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Asignar Maestro</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Listado de Clases Actuales -->
+        <div class="mt-8">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">Clases Registradas</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for c in classes %}
+                <div class="border p-4 rounded-lg shadow-sm bg-white flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-lg text-blue-600">{{ c.name }}</h3>
+                        <p class="text-slate-600 text-sm mb-3">{{ c.description }}</p>
+                    </div>
+                    <a href="/class/{{ c.id }}/attendance" class="bg-slate-800 text-white text-center py-2 rounded text-sm hover:bg-slate-700">Ver Asistencia de esta Clase</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <script>
+        function toggleDate(val) {
+            document.getElementById('date_field').style.display = val === 'temporary' ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Asistencia - Escuela Dominical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-6">
+    <div class="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-slate-800">Control de Asistencia (Administrador)</h1>
+            <a href="/dashboard" class="text-blue-600 hover:underline">← Volver al Panel</a>
+        </div>
+
+        <!-- Formulario para Registrar Alumno por primera vez -->
+        <!-- Formulario para Registrar Alumno por primera vez -->
+<form method="POST" class="bg-slate-50 p-4 rounded-lg mb-6 border">
+    <h3 class="font-bold mb-2">Registrar Nuevo Alumno</h3>
+    
+    <!-- Campos de Nombres y Apellidos -->
+    <div class="flex gap-4 mb-3">
+        <input type="text" name="first_name" placeholder="Nombres" required class="border p-2 rounded w-1/2">
+        <input type="text" name="last_name" placeholder="Apellidos" required class="border p-2 rounded w-1/2">
+    </div>
+
+    <!-- Selector de clases -->
+    <div class="mb-3">
+        <label class="block text-sm font-medium text-slate-600">Asignar a Clase</label>
+        <select name="clase_id" required class="w-full border p-2 rounded bg-white">
+            <option value="">-- Selecciona una clase --</option>
+            {% for clase in clases %}
+                <option value="{{ clase.id }}">{{ clase.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Botón de enviar al final -->
+    <button type="submit" name="add_student" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Registrar Alumno
+    </button>
+</form>
+
+        <!-- Selector de Fecha para tomar lista -->
+        <form method="GET" class="mb-4 flex gap-4 items-center">
+            <label class="font-semibold">Seleccionar Fecha de Clase:</label>
+            <input type="date" name="date" value="{{ selected_date }}" onchange="this.form.submit()" class="border p-2 rounded">
+        </form>
+
+        {% if selected_date %}
+        <form method="POST">
+            <input type="hidden" name="class_date" value="{{ selected_date }}">
+            <h3 class="font-bold text-lg mb-2">Lista de Alumnos (Orden alfabético por Apellido)</h3>
+            <table class="w-full border-collapse mb-4">
+                <thead>
+                    <tr class="bg-slate-200 text-left">
+                        <th class="p-2 border">Apellidos y Nombres</th>
+                        <th class="p-2 border text-center">Asistió</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in students %}
+                    <tr>
+                        <td class="p-2 border font-medium">{{ s.last_name }}, {{ s.first_name }}</td>
+                        <td class="p-2 border text-center">
+                            <input type="checkbox" name="present_{{ s.id }}" {% if attendance_map.get(s.id) %}checked{% endif %} class="w-5 h-5 accent-blue-600">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" name="save_attendance" class="bg-green-600 text-white px-6 py-2 rounded font-semibold hover:bg-green-700">Guardar Asistencia</button>
+        </form>
+        {% else %}
+        <p class="text-slate-500 italic">Selecciona una fecha arriba para habilitar la toma de asistencia.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Personal - Escuela Dominical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-6">
+    <div class="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">👥 Gestión de Personal y Cargos</h1>
+                <p class="text-slate-500 text-sm">Asigna roles de administrador (Presidencia) o maestros</p>
+            </div>
+            <a href="/dashboard" class="text-blue-600 hover:underline">← Volver al Panel</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="p-4 mb-4 rounded bg-{{ 'green' if category=='success' else 'red' }}-100 text-{{ 'green' if category=='success' else 'red' }}-700">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <table class="w-full border-collapse">
+            <thead>
+                <tr class="bg-slate-200 text-left">
+                    <th class="p-3 border">Nombre</th>
+                    <th class="p-3 border">Correo</th>
+                    <th class="p-3 border text-center">Rol Sistema</th>
+                    <th class="p-3 border text-center">Cargo en la Escuela</th>
+                    <th class="p-3 border text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in teachers %}
+                <tr class="hover:bg-slate-50">
+                    <td class="p-3 border font-medium text-slate-800">{{ t.name }}</td>
+                    <td class="p-3 border text-slate-600">{{ t.email }}</td>
+                    <form method="POST">
+                        <input type="hidden" name="user_id" value="{{ t.id }}">
+                        <td class="p-3 border text-center">
+                            <select name="role" class="border p-1 rounded text-sm">
+                                <option value="teacher" {% if t.role == 'teacher' %}selected{% endif %}>Maestro</option>
+                                <option value="admin" {% if t.role == 'admin' %}selected{% endif %}>Admin</option>
+                            </select>
+                        </td>
+                        <td class="p-3 border text-center">
+                            <select name="position" class="border p-1 rounded text-sm">
+                                <option value="Secretario (Administrador Principal)" {% if t.position == 'Secretario (Administrador Principal)' %}selected{% endif %}>Secretario (Principal)</option>
+                                <option value="Presidente de Escuela Dominical" {% if t.position == 'Presidente de Escuela Dominical' %}selected{% endif %}>Presidente</option>
+                                <option value="Primer Consejero" {% if t.position == 'Primer Consejero' %}selected{% endif %}>Primer Consejero</option>
+                                <option value="Segundo Consejero" {% if t.position == 'Segundo Consejero' %}selected{% endif %}>Segundo Consejero</option>
+                                <option value="Maestro" {% if t.position == 'Maestro' or not t.position %}selected{% endif %}>Maestro</option>
+                            </select>
+                        </td>
+                        <td class="p-3 border text-center">
+                            <div class="flex justify-center gap-2 items-center">
+                                <button type="submit" name="update_user" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">Guardar</button>
+                                {% if t.email != 'aleksanderportaro@gmail.com' %}
+                                <button type="submit" name="delete_user" onclick="return confirm('¿Eliminar usuario?');" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Eliminar</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </form>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
