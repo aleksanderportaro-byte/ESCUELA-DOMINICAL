@@ -68,10 +68,18 @@ def init_db():
             id SERIAL PRIMARY KEY,
             class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
             user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            custom_teacher_name VARCHAR(150),
             assignment_type VARCHAR(20) DEFAULT 'permanent',
             session_date DATE
         );
     """)
+
+    # Asegurar que class_teachers tenga la columna custom_teacher_name
+    try:
+        cur.execute("ALTER TABLE class_teachers ADD COLUMN custom_teacher_name VARCHAR(150);")
+        conn.commit()
+    except Exception:
+        conn.rollback()
 
     # Tabla de Alumnos
     cur.execute("""
@@ -101,6 +109,41 @@ def init_db():
             description TEXT NOT NULL,
             status VARCHAR(50) DEFAULT 'En progreso',
             created_at DATE DEFAULT CURRENT_DATE
+        );
+    """)
+
+    # Asegurar que materials tenga la columna clase_id
+    try:
+        cur.execute("ALTER TABLE materials ADD COLUMN clase_id INTEGER REFERENCES classes(id) ON DELETE SET NULL;")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Tabla de Calendario de Clases Programadas
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS classes_schedule (
+            id SERIAL PRIMARY KEY,
+            month VARCHAR(50) NOT NULL,
+            title VARCHAR(200) NOT NULL,
+            meeting_link TEXT,
+            scheduled_date DATE NOT NULL,
+            class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL
+        );
+    """)
+
+    # Asegurar que classes_schedule tenga la columna class_id si la tabla ya existía
+    try:
+        cur.execute("ALTER TABLE classes_schedule ADD COLUMN class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL;")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Tabla de Personal Manual (sin cuenta de usuario)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS staff (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(150) NOT NULL,
+            position VARCHAR(100)
         );
     """)
     
@@ -219,7 +262,8 @@ def materials():
         if 'add_material' in request.form and session['user']['role'] == 'admin':
             mat_name = request.form['mat_name']
             total_stock = int(request.form['total_stock'])
-            cur.execute("INSERT INTO materials (name, total_stock) VALUES (%s, %s)", (mat_name, total_stock))
+            clase_id = request.form.get('clase_id') or None
+            cur.execute("INSERT INTO materials (name, total_stock, clase_id) VALUES (%s, %s, %s)", (mat_name, total_stock, clase_id))
             conn.commit()
             flash('Material agregado al inventario con éxito.', 'success')
             
@@ -249,8 +293,16 @@ def materials():
             else:
                 flash(f'Stock insuficiente para el {class_date}. Disponible: {available_stock}', 'danger')
 
-    cur.execute("SELECT * FROM materials ORDER BY name ASC;")
+    cur.execute("""
+        SELECT m.id, m.name, m.total_stock, c.name AS clase_name
+        FROM materials m
+        LEFT JOIN classes c ON m.clase_id = c.id
+        ORDER BY m.name ASC;
+    """)
     materials_list = cur.fetchall()
+
+    cur.execute("SELECT id, name FROM classes ORDER BY name ASC;")
+    clases_list = cur.fetchall()
     
     cur.execute('''
         SELECT mr.id, u.name as teacher_name, m.name as material_name, mr.quantity, mr.class_date, mr.status
@@ -264,7 +316,7 @@ def materials():
     cur.close()
     conn.close()
     
-    return render_template('materials.html', materials=materials_list, requests=requests_list)
+    return render_template('materials.html', materials=materials_list, requests=requests_list, clases=clases_list)
 
 # MÓDULO 2: CALENDARIO DE CLASES DEL MES
 @app.route('/schedule', methods=['GET', 'POST'])
@@ -280,21 +332,30 @@ def schedule():
         title = request.form['title']
         meeting_link = request.form['meeting_link']
         scheduled_date = request.form['scheduled_date']
+        class_id = request.form.get('class_id') or None
         
         cur.execute(
-            "INSERT INTO classes_schedule (month, title, meeting_link, scheduled_date) VALUES (%s, %s, %s, %s)",
-            (month, title, meeting_link, scheduled_date)
+            "INSERT INTO classes_schedule (month, title, meeting_link, scheduled_date, class_id) VALUES (%s, %s, %s, %s, %s)",
+            (month, title, meeting_link, scheduled_date, class_id)
         )
         conn.commit()
         flash('Clase programada con éxito.', 'success')
         
-    cur.execute("SELECT * FROM classes_schedule ORDER BY scheduled_date ASC;")
+    cur.execute("""
+        SELECT cs.id, cs.month, cs.title, cs.meeting_link, cs.scheduled_date, c.name AS class_name
+        FROM classes_schedule cs
+        LEFT JOIN classes c ON cs.class_id = c.id
+        ORDER BY cs.scheduled_date ASC;
+    """)
     classes = cur.fetchall()
+
+    cur.execute("SELECT id, name FROM classes ORDER BY name ASC;")
+    clases_list = cur.fetchall()
     
     cur.close()
     conn.close()
     
-    return render_template('schedule.html', classes=classes)
+    return render_template('schedule.html', classes=classes, clases=clases_list)
 
 # MÓDULO 3: ASISTENCIA EXCLUSIVA DEL ADMIN (Ordenada alfabéticamente por apellido)
 @app.route('/admin/attendance', methods=['GET', 'POST'])
@@ -335,8 +396,13 @@ def admin_attendance():
                     ON CONFLICT (student_id, class_date)
                     DO UPDATE SET present = EXCLUDED.present;
                 ''', (s_id, class_date, present))
+
+                clase_val = request.form.get(f'clase_id_{s_id}')
+                clase_id = int(clase_val) if clase_val and clase_val.isdigit() else None
+                cur.execute("UPDATE students SET clase_id = %s WHERE id = %s", (clase_id, s_id))
+
             conn.commit()
-            flash('Asistencia guardada correctamente.', 'success')
+            flash('Asistencia y asignación de clases guardadas correctamente.', 'success')
 
     cur.execute(
         "SELECT id, first_name, last_name, clase_id FROM students ORDER BY last_name ASC, first_name ASC;"
@@ -437,32 +503,91 @@ def admin_classes():
 
         elif 'assign_teacher' in request.form:
             class_id = request.form.get('class_id')
-            user_id = request.form.get('user_id')
+            raw_id = request.form.get('user_id', '')
             custom_teacher_name = request.form.get('custom_teacher_name', '').strip()
-            assignment_type = request.form.get('assignment_type')
-            session_date = request.form.get('session_date') if assignment_type == 'temporary' else None
 
-            # Manejo seguro para usuario registrado o nombre escrito a mano
-            u_id = int(user_id) if user_id and user_id.isdigit() else None
-            c_name = custom_teacher_name if not u_id else None
+            u_id = None
+            c_name = custom_teacher_name or None
+            if raw_id.startswith('u_'):
+                u_id = int(raw_id[2:])
+                c_name = None
+            elif raw_id.startswith('s_'):
+                staff_id = int(raw_id[2:])
+                cur.execute("SELECT name FROM staff WHERE id = %s", (staff_id,))
+                staff_row = cur.fetchone()
+                c_name = staff_row['name'] if staff_row else custom_teacher_name or None
 
             if class_id:
                 cur.execute("""
                     INSERT INTO class_teachers (class_id, user_id, custom_teacher_name, assignment_type, session_date)
                     VALUES (%s, %s, %s, %s, %s)
-                """, (class_id, u_id, c_name, assignment_type, session_date))
+                """, (class_id, u_id, c_name, 'permanent', None))
                 conn.commit()
                 flash('Maestro asignado correctamente.', 'success')
+
+        elif 'update_teacher' in request.form:
+            class_id = request.form.get('class_id')
+            ct_id = request.form.get('ct_id')
+            raw_id = request.form.get('user_id', '')
+            custom_teacher_name = request.form.get('custom_teacher_name', '').strip()
+
+            u_id = None
+            c_name = custom_teacher_name or None
+            if raw_id.startswith('u_'):
+                u_id = int(raw_id[2:])
+                c_name = None
+            elif raw_id.startswith('s_'):
+                staff_id = int(raw_id[2:])
+                cur.execute("SELECT name FROM staff WHERE id = %s", (staff_id,))
+                staff_row = cur.fetchone()
+                c_name = staff_row['name'] if staff_row else custom_teacher_name or None
+
+            if ct_id:
+                cur.execute(
+                    "UPDATE class_teachers SET user_id = %s, custom_teacher_name = %s WHERE id = %s",
+                    (u_id, c_name, ct_id)
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO class_teachers (class_id, user_id, custom_teacher_name) VALUES (%s, %s, %s)",
+                    (class_id, u_id, c_name)
+                )
+            conn.commit()
+            flash('Maestro asignado/actualizado correctamente.', 'success')
 
     cur.execute("SELECT * FROM classes ORDER BY name ASC;")
     clases = cur.fetchall()
 
     cur.execute("SELECT id, name, email FROM users ORDER BY name ASC;")
-    teachers = cur.fetchall()
+    users_list = cur.fetchall()
+
+    cur.execute("SELECT id, name, position FROM staff ORDER BY name ASC;")
+    staff_list = cur.fetchall()
+
+    teachers = []
+    for u in users_list:
+        teachers.append({'id': f"u_{u['id']}", 'name': u['name'], 'source': 'user'})
+    for s in staff_list:
+        teachers.append({'id': f"s_{s['id']}", 'name': s['name'], 'source': 'staff'})
+
+    cur.execute("""
+        SELECT ct.class_id, ct.id as ct_id, ct.user_id, ct.custom_teacher_name
+        FROM class_teachers ct
+    """)
+    raw_assignments = cur.fetchall()
+    teacher_map = {}
+    for ta in raw_assignments:
+        if ta['class_id'] not in teacher_map:
+            display_name = ta['custom_teacher_name']
+            if not display_name and ta['user_id']:
+                cur.execute("SELECT name FROM users WHERE id = %s", (ta['user_id'],))
+                u_row = cur.fetchone()
+                display_name = u_row['name'] if u_row else None
+            teacher_map[ta['class_id']] = {**ta, 'teacher_name': display_name}
 
     cur.close()
     conn.close()
-    return render_template('admin_classes.html', clases=clases, teachers=teachers)
+    return render_template('admin_classes.html', clases=clases, teachers=teachers, teacher_map=teacher_map)
 
 @app.route('/delete_class/<int:class_id>', methods=['POST'])
 def delete_class(class_id):
@@ -508,12 +633,29 @@ def admin_teachers():
             else:
                 flash('No puedes eliminar tu propia cuenta de administrador principal.', 'danger')
 
+        elif 'add_staff' in request.form:
+            s_name = request.form['staff_name'].strip()
+            s_position = request.form['staff_position'].strip()
+            if s_name:
+                cur.execute("INSERT INTO staff (name, position) VALUES (%s, %s)", (s_name, s_position or None))
+                conn.commit()
+                flash('Personal registrado manualmente con éxito.', 'success')
+
+        elif 'delete_staff' in request.form:
+            staff_id = request.form['staff_id']
+            cur.execute("DELETE FROM staff WHERE id = %s", (staff_id,))
+            conn.commit()
+            flash('Personal eliminado correctamente.', 'success')
+
     cur.execute("SELECT id, name, email, role, position FROM users ORDER BY name ASC;")
     teachers = cur.fetchall()
 
+    cur.execute("SELECT id, name, position FROM staff ORDER BY name ASC;")
+    staff_list = cur.fetchall()
+
     cur.close()
     conn.close()
-    return render_template('admin_teachers.html', teachers=teachers)
+    return render_template('admin_teachers.html', teachers=teachers, staff=staff_list)
 
 @app.route('/admin/attendance-stats', methods=['GET', 'POST'])
 def attendance_stats():
@@ -524,41 +666,78 @@ def attendance_stats():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    if request.method == 'POST' and 'add_strategy' in request.form:
-        title = request.form['title']
-        description = request.form['description']
-        status = request.form['status']
-        cur.execute("""
-            INSERT INTO attendance_strategies (title, description, status) 
-            VALUES (%s, %s, %s)
-        """, (title, description, status))
-        conn.commit()
-        flash('Estrategia registrada con éxito.', 'success')
+    if request.method == 'POST':
+        if 'add_strategy' in request.form:
+            title = request.form['title']
+            description = request.form['description']
+            status = request.form['status']
+            cur.execute("""
+                INSERT INTO attendance_strategies (title, description, status) 
+                VALUES (%s, %s, %s)
+            """, (title, description, status))
+            conn.commit()
+            flash('Estrategia registrada con éxito.', 'success')
 
-    # Estadísticas de asistencia agrupadas por fecha y clase (según la estructura actual de tu base de datos)
+        elif 'update_strategy' in request.form:
+            strat_id = request.form['strat_id']
+            new_status = request.form['new_status']
+            cur.execute("UPDATE attendance_strategies SET status = %s WHERE id = %s", (new_status, strat_id))
+            conn.commit()
+            flash('Estado de la estrategia actualizado.', 'success')
+
+    # Estadísticas: asistencia por clase y fecha
     try:
         cur.execute("""
-            SELECT c.name as class_name, 
-                   a.date as week_start,
-                   COUNT(CASE WHEN a.status = 'presente' THEN 1 END) as total_presentes,
+            SELECT c.name as class_name,
+                   a.class_date as week_start,
+                   COUNT(CASE WHEN a.present = true THEN 1 END) as total_presentes,
                    COUNT(a.id) as total_registrados
             FROM attendance a
             JOIN classes c ON a.class_id = c.id
-            GROUP BY c.name, a.date
-            ORDER BY a.date DESC, c.name ASC;
+            GROUP BY c.name, a.class_date
+            ORDER BY a.class_date DESC, c.name ASC;
         """)
         weekly_stats = cur.fetchall()
     except Exception:
         conn.rollback()
         weekly_stats = []
 
-    # Obtener estrategias registradas
+    # Maestros asignados por clase (usuarios + staff manual)
+    cur.execute("""
+        SELECT ct.class_id, ct.user_id, ct.custom_teacher_name, c.name as class_name
+        FROM class_teachers ct
+        JOIN classes c ON ct.class_id = c.id
+    """)
+    raw_ct = cur.fetchall()
+    class_teachers_map = {}
+    for row in raw_ct:
+        cid = row['class_id']
+        if cid not in class_teachers_map:
+            class_teachers_map[cid] = {'class_name': row['class_name'], 'teachers': []}
+        display = row['custom_teacher_name']
+        if not display and row['user_id']:
+            cur.execute("SELECT name FROM users WHERE id = %s", (row['user_id'],))
+            u = cur.fetchone()
+            display = u['name'] if u else 'Desconocido'
+        class_teachers_map[cid]['teachers'].append(display or 'Sin nombre')
+
+    # Todas las clases (para mostrar aunque no tengan maestro ni asistencia)
+    cur.execute("SELECT id, name FROM classes ORDER BY name ASC;")
+    all_classes = cur.fetchall()
+
+    # Estrategias
     cur.execute("SELECT * FROM attendance_strategies ORDER BY id DESC;")
     strategies = cur.fetchall()
 
     cur.close()
     conn.close()
-    return render_template('attendance_stats.html', weekly_stats=weekly_stats, strategies=strategies)
+    return render_template(
+        'attendance_stats.html',
+        weekly_stats=weekly_stats,
+        strategies=strategies,
+        class_teachers_map=class_teachers_map,
+        all_classes=all_classes,
+    )
 
 @app.route('/delete_material_request/<int:req_id>', methods=['POST'])
 def delete_material_request(req_id):
@@ -574,6 +753,22 @@ def delete_material_request(req_id):
     conn.close()
     
     flash('Registro eliminado del historial correctamente.', 'success')
+    return redirect(url_for('materials'))
+
+@app.route('/delete_material/<int:material_id>', methods=['POST'])
+def delete_material(material_id):
+    if 'user' not in session or session['user']['role'] != 'admin':
+        flash('Acceso no autorizado.', 'danger')
+        return redirect(url_for('materials'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM materials WHERE id = %s", (material_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash('Material eliminado del inventario correctamente.', 'success')
     return redirect(url_for('materials'))
 
 @app.route('/clase/<int:clase_id>/asistencia')

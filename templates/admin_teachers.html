@@ -2,72 +2,136 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Personal - Escuela Dominical</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100 min-h-screen p-6">
-    <div class="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow">
-        <div class="flex justify-between items-center mb-6">
+<body class="bg-slate-50 min-h-screen p-4 md:p-6">
+    <div class="max-w-5xl mx-auto bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2 mb-6 pb-6 border-b border-slate-200">
             <div>
-                <h1 class="text-2xl font-bold text-slate-800">👥 Gestión de Personal y Cargos</h1>
-                <p class="text-slate-500 text-sm">Asigna roles de administrador (Presidencia) o maestros</p>
+                <h1 class="text-xl md:text-2xl font-bold text-slate-900">Gestión de Personal y Cargos</h1>
+                <p class="text-slate-500 text-sm">Administra usuarios con cuenta y personal registrado manualmente</p>
             </div>
-            <a href="/dashboard" class="text-blue-600 hover:underline">← Volver al Panel</a>
+            <a href="/dashboard" class="text-sky-600 hover:text-sky-700 text-sm font-medium">← Volver al Panel</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="p-4 mb-4 rounded bg-{{ 'green' if category=='success' else 'red' }}-100 text-{{ 'green' if category=='success' else 'red' }}-700">{{ message }}</div>
+              <div class="p-4 mb-4 rounded-xl text-sm font-medium {{ 'bg-sky-50 text-sky-800 border border-sky-200' if category=='success' else 'bg-red-50 text-red-800 border border-red-200' }}">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <table class="w-full border-collapse">
-            <thead>
-                <tr class="bg-slate-200 text-left">
-                    <th class="p-3 border">Nombre</th>
-                    <th class="p-3 border">Correo</th>
-                    <th class="p-3 border text-center">Rol Sistema</th>
-                    <th class="p-3 border text-center">Cargo en la Escuela</th>
-                    <th class="p-3 border text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for t in teachers %}
-                <tr class="hover:bg-slate-50">
-                    <td class="p-3 border font-medium text-slate-800">{{ t.name }}</td>
-                    <td class="p-3 border text-slate-600">{{ t.email }}</td>
-                    <form method="POST">
-                        <input type="hidden" name="user_id" value="{{ t.id }}">
-                        <td class="p-3 border text-center">
-                            <select name="role" class="border p-1 rounded text-sm">
-                                <option value="teacher" {% if t.role == 'teacher' %}selected{% endif %}>Maestro</option>
-                                <option value="admin" {% if t.role == 'admin' %}selected{% endif %}>Admin</option>
-                            </select>
-                        </td>
-                        <td class="p-3 border text-center">
-                            <select name="position" class="border p-1 rounded text-sm">
-                                <option value="Secretario (Administrador Principal)" {% if t.position == 'Secretario (Administrador Principal)' %}selected{% endif %}>Secretario (Principal)</option>
-                                <option value="Presidente de Escuela Dominical" {% if t.position == 'Presidente de Escuela Dominical' %}selected{% endif %}>Presidente</option>
-                                <option value="Primer Consejero" {% if t.position == 'Primer Consejero' %}selected{% endif %}>Primer Consejero</option>
-                                <option value="Segundo Consejero" {% if t.position == 'Segundo Consejero' %}selected{% endif %}>Segundo Consejero</option>
-                                <option value="Maestro" {% if t.position == 'Maestro' or not t.position %}selected{% endif %}>Maestro</option>
-                            </select>
-                        </td>
-                        <td class="p-3 border text-center">
-                            <div class="flex justify-center gap-2 items-center">
-                                <button type="submit" name="update_user" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">Guardar</button>
-                                {% if t.email != 'aleksanderportaro@gmail.com' %}
-                                <button type="submit" name="delete_user" onclick="return confirm('¿Eliminar usuario?');" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Eliminar</button>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </form>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- Sección: Registrar Personal Manual -->
+        <div class="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200 mb-8">
+            <h2 class="font-bold text-lg mb-1 text-slate-900">Registrar Personal Manualmente</h2>
+            <p class="text-sm text-slate-500 mb-4">Personal que no tiene cuenta de usuario (solo nombre y cargo).</p>
+            <form method="POST" class="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
+                <input type="hidden" name="add_staff" value="1">
+                <div class="flex-1 min-w-[200px] w-full">
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Nombre completo</label>
+                    <input type="text" name="staff_name" required placeholder="Ej. María López" class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                </div>
+                <div class="flex-1 min-w-[200px] w-full">
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Cargo / Rol</label>
+                    <select name="staff_position" class="w-full border border-slate-300 p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                        <option value="Maestro">Maestro</option>
+                        <option value="Presidente de Escuela Dominical">Presidente</option>
+                        <option value="Primer Consejero">Primer Consejero</option>
+                        <option value="Segundo Consejero">Segundo Consejero</option>
+                        <option value="Secretario">Secretario</option>
+                        <option value="Tesorero">Tesorero</option>
+                    </select>
+                </div>
+                <button type="submit" class="bg-sky-600 text-white px-5 py-2.5 rounded-xl hover:bg-sky-700 font-semibold w-full sm:w-auto transition shadow-lg shadow-sky-600/20">Registrar</button>
+            </form>
+        </div>
+
+        <!-- Sección: Personal Manual Registrado -->
+        {% if staff %}
+        <div class="mb-8">
+            <h2 class="text-lg md:text-xl font-bold text-slate-900 mb-3">Personal Registrado Manualmente</h2>
+            <div class="overflow-x-auto shadow-md rounded-xl border border-slate-200">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900 text-white text-left">
+                            <th class="p-3 border border-slate-700">Nombre</th>
+                            <th class="p-3 border border-slate-700">Cargo</th>
+                            <th class="p-3 border border-slate-700 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in staff %}
+                        <tr class="hover:bg-sky-50/50 border-b border-slate-100">
+                            <td class="p-3 border border-slate-200 font-medium text-slate-900">{{ s.name }}</td>
+                            <td class="p-3 border border-slate-200 text-slate-600">{{ s.position or 'Sin definir' }}</td>
+                            <td class="p-3 border border-slate-200 text-center">
+                                <form method="POST" class="inline">
+                                    <input type="hidden" name="staff_id" value="{{ s.id }}">
+                                    <button type="submit" name="delete_staff" onclick="return confirm('¿Eliminar a este personal?')" class="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-600 transition font-medium">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Sección: Usuarios con Cuenta (Google OAuth) -->
+        <div>
+            <h2 class="text-lg md:text-xl font-bold text-slate-900 mb-3">Usuarios con Cuenta de Sistema</h2>
+            <div class="overflow-x-auto shadow-md rounded-xl border border-slate-200">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900 text-white text-left">
+                            <th class="p-3 border border-slate-700">Nombre</th>
+                            <th class="p-3 border border-slate-700 hidden md:table-cell">Correo</th>
+                            <th class="p-3 border border-slate-700 text-center">Rol</th>
+                            <th class="p-3 border border-slate-700 text-center hidden sm:table-cell">Cargo</th>
+                            <th class="p-3 border border-slate-700 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in teachers %}
+                        <tr class="hover:bg-sky-50/50 border-b border-slate-100">
+                            <td class="p-3 border border-slate-200 font-medium text-slate-900">{{ t.name }}</td>
+                            <td class="p-3 border border-slate-200 text-slate-600 hidden md:table-cell">{{ t.email }}</td>
+                            <form method="POST">
+                                <input type="hidden" name="user_id" value="{{ t.id }}">
+                                <td class="p-3 border border-slate-200 text-center">
+                                    <select name="role" class="border border-slate-300 p-1.5 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                                        <option value="teacher" {% if t.role == 'teacher' %}selected{% endif %}>Maestro</option>
+                                        <option value="admin" {% if t.role == 'admin' %}selected{% endif %}>Admin</option>
+                                    </select>
+                                </td>
+                                <td class="p-3 border border-slate-200 text-center hidden sm:table-cell">
+                                    <select name="position" class="border border-slate-300 p-1.5 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                                        <option value="Secretario (Administrador Principal)" {% if t.position == 'Secretario (Administrador Principal)' %}selected{% endif %}>Secretario (Principal)</option>
+                                        <option value="Presidente de Escuela Dominical" {% if t.position == 'Presidente de Escuela Dominical' %}selected{% endif %}>Presidente</option>
+                                        <option value="Primer Consejero" {% if t.position == 'Primer Consejero' %}selected{% endif %}>Primer Consejero</option>
+                                        <option value="Segundo Consejero" {% if t.position == 'Segundo Consejero' %}selected{% endif %}>Segundo Consejero</option>
+                                        <option value="Maestro" {% if t.position == 'Maestro' or not t.position %}selected{% endif %}>Maestro</option>
+                                    </select>
+                                </td>
+                                <td class="p-3 border border-slate-200 text-center">
+                                    <div class="flex justify-center gap-1 sm:gap-2 items-center">
+                                        <button type="submit" name="update_user" class="bg-sky-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-sky-700 transition font-medium">Guardar</button>
+                                        {% if t.email != 'aleksanderportaro@gmail.com' %}
+                                        <button type="submit" name="delete_user" onclick="return confirm('¿Eliminar usuario?');" class="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-600 transition font-medium">Eliminar</button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </form>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </body>
 </html>

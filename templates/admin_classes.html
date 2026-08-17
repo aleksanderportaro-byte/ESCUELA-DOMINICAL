@@ -2,139 +2,134 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Clases - Escuela Dominical</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100 min-h-screen p-6">
-    <div class="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-slate-800">📚 Administración de Clases y Maestros</h1>
-            <a href="/dashboard" class="text-blue-600 hover:underline">← Volver al Panel</a>
+<body class="bg-slate-50 min-h-screen p-4 md:p-6">
+    <div class="max-w-5xl mx-auto bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2 mb-6 pb-6 border-b border-slate-200">
+            <h1 class="text-xl md:text-2xl font-bold text-slate-900">Administración de Clases y Maestros</h1>
+            <a href="/dashboard" class="text-sky-600 hover:text-sky-700 text-sm font-medium">← Volver al Panel</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="p-4 mb-4 rounded bg-{{ 'green' if category=='success' else 'red' }}-100 text-{{ 'green' if category=='success' else 'red' }}-700">{{ message }}</div>
+              <div class="p-4 mb-4 rounded-xl text-sm font-medium {{ 'bg-sky-50 text-sky-800 border border-sky-200' if category=='success' else 'bg-red-50 text-red-800 border border-red-200' }}">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <!-- Formulario Crear Clase -->
-            <div class="bg-slate-50 p-4 rounded-lg border">
-                <h2 class="font-bold text-lg mb-3 text-slate-700">Crear Nueva Clase</h2>
+            <div class="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200">
+                <h2 class="font-bold text-lg mb-3 text-slate-900">Crear Nueva Clase</h2>
                 <form method="POST" class="space-y-3">
                     <input type="hidden" name="create_class" value="1">
                     <div>
-                        <label class="block text-sm font-medium text-slate-600">Nombre de la Clase</label>
-                        <input type="text" name="name" required class="w-full border p-2 rounded">
+                        <label class="block text-sm font-medium text-slate-600 mb-1">Nombre de la Clase</label>
+                        <input type="text" name="name" required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-600">Descripción</label>
-                        <textarea name="description" class="w-full border p-2 rounded"></textarea>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">Descripción</label>
+                        <textarea name="description" class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"></textarea>
                     </div>
-                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Crear Clase</button>
+                    <button type="submit" class="bg-sky-600 text-white px-5 py-2.5 rounded-xl hover:bg-sky-700 transition font-medium shadow-lg shadow-sky-600/20">Crear Clase</button>
                 </form>
             </div>
 
             <!-- Formulario Asignar Maestro -->
-            <form action="{{ url_for('admin_classes') }}" method="POST" class="bg-slate-50 p-4 rounded-lg border mb-6">
-    <h3 class="font-bold text-lg mb-4 text-slate-700">Asignar Maestro a Clase</h3>
-    
-    <!-- Selector de Clase -->
-    <div class="mb-3">
-        <label class="block text-sm font-medium text-slate-600">Seleccionar Clase</label>
-        <select name="class_id" required class="w-full border p-2 rounded bg-white">
-            <option value="">-- Selecciona una clase --</option>
-            {% for c in clases %}
-            <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <!-- Opcional: Usuario Registrado -->
-    <div class="mb-3">
-        <label class="block text-sm font-medium text-slate-600">Seleccionar Usuario Registrado (Opcional)</label>
-        <select name="user_id" class="w-full border p-2 rounded bg-white">
-            <option value="">-- Seleccionar de la lista --</option>
-            {% for t in teachers %}
-            <option value="{{ t.id }}">{{ t.name }} ({{ t.email }})</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <!-- Opcional: Nombre escrito a mano -->
-    <div class="mb-3">
-        <label class="block text-sm font-medium text-slate-600">O Escribir Nombre del Maestro (Si no está registrado)</label>
-        <input type="text" name="custom_teacher_name" placeholder="Ej. Juan Pérez" class="w-full border p-2 rounded">
-    </div>
-
-    <!-- Tipo de asignación y fecha (según tu código previo) -->
-    <!-- ... tus campos de assignment_type y session_date ... -->
-
-    <button type="submit" name="assign_teacher" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-        Asignar Maestro
-    </button>
-</form>
-
-        <!-- Listado de Clases Actuales -->
-        <div class="mt-8">
-            <h2 class="text-xl font-bold text-slate-800 mb-4">Clases Registradas</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {% for c in classes %}
-                <div class="border p-4 rounded-lg shadow-sm bg-white flex flex-col justify-between">
-                    <div>
-                        <h3 class="font-bold text-lg text-blue-600">{{ c.name }}</h3>
-                        <p class="text-slate-600 text-sm mb-3">{{ c.description }}</p>
-                    </div>
-                    <a href="/class/{{ c.id }}/attendance" class="bg-slate-800 text-white text-center py-2 rounded text-sm hover:bg-slate-700">Ver Asistencia de esta Clase</a>
+            <form action="{{ url_for('admin_classes') }}" method="POST" class="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200">
+                <h3 class="font-bold text-lg mb-4 text-slate-900">Asignar Maestro a Clase</h3>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Seleccionar Clase</label>
+                    <select name="class_id" required class="w-full border border-slate-300 p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                        <option value="">-- Selecciona una clase --</option>
+                        {% for c in clases %}
+                        <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                {% endfor %}
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Seleccionar Maestro</label>
+                    <select name="user_id" class="w-full border border-slate-300 p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                        <option value="">-- Seleccionar de la lista --</option>
+                        {% for t in teachers %}
+                        <option value="{{ t.id }}">{{ t.name }}{% if t.source == 'staff' %} (Personal manual){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-slate-600 mb-1">O Escribir Nombre del Maestro</label>
+                    <input type="text" name="custom_teacher_name" placeholder="Ej. Juan Pérez" class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                </div>
+                <button type="submit" name="assign_teacher" class="bg-sky-600 text-white px-5 py-2.5 rounded-xl hover:bg-sky-700 transition font-medium shadow-lg shadow-sky-600/20">Asignar Maestro</button>
+            </form>
+        </div>
+
+        <!-- Listado de Clases -->
+        <div class="mt-8 bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200">
+            <h3 class="font-bold text-lg mb-4 text-slate-900">Clases Registradas</h3>
+            <div class="overflow-x-auto shadow-md rounded-xl">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900 text-white">
+                            <th class="p-3 border border-slate-700">Nombre</th>
+                            <th class="p-3 border border-slate-700 hidden sm:table-cell">Descripción</th>
+                            <th class="p-3 border border-slate-700">Maestro Asignado</th>
+                            <th class="p-3 border border-slate-700 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for clase in clases %}
+                        {% set ta = teacher_map.get(clase.id) %}
+                        <tr class="border-b border-slate-200 hover:bg-sky-50/50">
+                            <td class="p-3 border border-slate-200 font-medium text-slate-900">{{ clase.name }}</td>
+                            <td class="p-3 border border-slate-200 text-sm text-slate-600 hidden sm:table-cell">{{ clase.description or '—' }}</td>
+                            <td class="p-3 border border-slate-200">
+                                {% if ta %}
+                                    <span class="text-sm font-semibold text-sky-700">{{ ta.teacher_name if ta.teacher_name else ta.custom_teacher_name }}</span>
+                                {% else %}
+                                    <span class="text-sm text-slate-400 italic">Sin asignar</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 border border-slate-200 text-center space-x-1 sm:space-x-2">
+                                <a href="{{ url_for('ver_asistencia_clase', clase_id=clase.id) }}"
+                                   class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-slate-900 transition font-medium">Ver Asistencia</a>
+                                <form action="/delete_class/{{ clase.id }}" method="POST" class="inline">
+                                    <button type="submit" onclick="return confirm('¿Eliminar la clase {{ clase.name }}?');" class="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-red-600 transition font-medium">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <!-- Fila de edición inline del maestro -->
+                        <tr class="bg-slate-100/50">
+                            <td colspan="4" class="p-3 border border-slate-200">
+                                <form method="POST" class="flex flex-wrap items-center gap-2 sm:gap-3">
+                                    <input type="hidden" name="update_teacher" value="1">
+                                    <input type="hidden" name="class_id" value="{{ clase.id }}">
+                                    <input type="hidden" name="ct_id" value="{{ ta.ct_id if ta and ta.ct_id else '' }}">
+                                    <label class="text-xs font-medium text-slate-500">Editar maestro:</label>
+                                    <select name="user_id" class="border border-slate-300 p-1.5 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                                        <option value="">-- Seleccionar --</option>
+                                        {% for t in teachers %}
+                                        <option value="{{ t.id }}" {% if ta and ta.user_id and t.id == 'u_' ~ ta.user_id %}selected{% endif %}>{{ t.name }}{% if t.source == 'staff' %} (Personal){% endif %}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <input type="text" name="custom_teacher_name" placeholder="O nombre manual" value="{{ ta.custom_teacher_name if ta and ta.custom_teacher_name else '' }}" class="border border-slate-300 p-1.5 rounded-lg text-sm w-full sm:w-48 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                                    <button type="submit" class="bg-sky-600 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-sky-700 transition font-medium">Guardar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="p-4 text-center text-slate-400">No hay clases registradas todavía.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-
-    <!-- Lista de Clases Registradas -->
-<div class="mt-8 bg-slate-50 p-4 rounded-lg border">
-    <h3 class="font-bold text-lg mb-4 text-slate-700">Clases Registradas</h3>
-    
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="bg-slate-200 text-slate-700">
-                    <th class="p-2 border">Nombre de la Clase</th>
-                    <th class="p-2 border">Descripción</th>
-                    <th class="p-2 border text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for clase in clases %}
-                <tr class="border-b hover:bg-slate-100">
-                    <td class="p-2 border">{{ clase.name }}</td>
-                    <td class="p-2 border">{{ clase.description }}</td>
-                    <td class="p-2 border text-center">
-                        <!-- ENLACE CLAVE PARA VER LA ASISTENCIA DE ESTA CLASE -->
-                        <a href="{{ url_for('ver_asistencia_clase', clase_id=clase.id) }}" 
-                           class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
-                            Ver Asistencia
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="3" class="p-4 text-center text-slate-500">No hay clases registradas todavía.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-    <script>
-        function toggleDate(val) {
-            document.getElementById('date_field').style.display = val === 'temporary' ? 'block' : 'none';
-        }
-    </script>
 </body>
 </html>

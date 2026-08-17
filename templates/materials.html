@@ -2,81 +2,129 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Materiales - Escuela Dominical</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100 min-h-screen p-6">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-slate-800">Control de Materiales y Stock</h1>
-            <a href="/dashboard" class="text-blue-600 hover:underline">← Volver al Panel</a>
+<body class="bg-slate-50 min-h-screen p-4 md:p-6">
+    <div class="max-w-5xl mx-auto bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2 mb-6 pb-6 border-b border-slate-200">
+            <h1 class="text-xl md:text-2xl font-bold text-slate-900">Control de Materiales y Stock</h1>
+            <a href="/dashboard" class="text-sky-600 hover:text-sky-700 text-sm font-medium">← Volver al Panel</a>
         </div>
 
         <!-- Mensajes Flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="p-4 mb-4 rounded bg-{{ 'green' if category=='success' else 'red' }}-100 text-{{ 'green' if category=='success' else 'red' }}-700">{{ message }}</div>
+              <div class="p-4 mb-4 rounded-xl text-sm font-medium {{ 'bg-sky-50 text-sky-800 border border-sky-200' if category=='success' else 'bg-red-50 text-red-800 border border-red-200' }}">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
         {% if session['user']['role'] == 'admin' %}
-        <form method="POST" class="bg-slate-50 p-4 rounded-lg mb-6 border">
-            <h3 class="font-bold mb-2">Añadir Nuevo Material al Inventario</h3>
-            <div class="flex gap-4">
-                <input type="text" name="mat_name" placeholder="Nombre (ej. Tizas, Proyector)" required class="border p-2 rounded flex-1">
-                <input type="number" name="total_stock" placeholder="Stock Total" required class="border p-2 rounded w-32">
-                <button type="submit" name="add_material" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Agregar</button>
+        <form method="POST" class="bg-slate-50 p-4 md:p-6 rounded-xl mb-6 border border-slate-200">
+            <h3 class="font-bold mb-3 text-slate-900">Añadir Nuevo Material al Inventario</h3>
+            <div class="flex flex-col sm:flex-row flex-wrap gap-4">
+                <input type="text" name="mat_name" placeholder="Nombre (ej. Tizas, Proyector)" required class="border border-slate-300 p-2.5 rounded-xl flex-1 min-w-[200px] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                <input type="number" name="total_stock" placeholder="Stock Total" required class="border border-slate-300 p-2.5 rounded-xl w-full sm:w-32 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                <select name="clase_id" class="border border-slate-300 p-2.5 rounded-xl bg-white w-full sm:w-auto focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                    <option value="">Sin clase asignada</option>
+                    {% for c in clases %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" name="add_material" class="bg-sky-600 text-white px-5 py-2.5 rounded-xl hover:bg-sky-700 w-full sm:w-auto transition font-medium shadow-lg shadow-sky-600/20">Agregar</button>
             </div>
         </form>
         {% endif %}
 
-        <form method="POST" class="bg-blue-50 p-4 rounded-lg mb-6 border">
-            <h3 class="font-bold mb-2 text-blue-900">Solicitar Material para tu Clase</h3>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <select name="material_id" required class="border p-2 rounded">
+        <!-- INVENTARIO DE MATERIALES -->
+        <h3 class="font-bold text-lg mb-3 text-slate-900">Inventario de Materiales</h3>
+        <div class="overflow-x-auto shadow-md rounded-xl mb-8 border border-slate-200">
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-slate-900 text-white text-left">
+                        <th class="p-3 border border-slate-700">Material</th>
+                        <th class="p-3 border border-slate-700">Stock Total</th>
+                        <th class="p-3 border border-slate-700 hidden sm:table-cell">Clase Asignada</th>
+                        {% if session['user']['role'] == 'admin' %}
+                        <th class="p-3 border border-slate-700 text-center">Acciones</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in materials %}
+                    <tr class="hover:bg-sky-50/50 border-b border-slate-100">
+                        <td class="p-3 border border-slate-200 font-medium text-slate-900">{{ m.name }}</td>
+                        <td class="p-3 border border-slate-200 text-slate-700">{{ m.total_stock }}</td>
+                        <td class="p-3 border border-slate-200 hidden sm:table-cell text-slate-600">{{ m.clase_name if m.clase_name else '—' }}</td>
+                        {% if session['user']['role'] == 'admin' %}
+                        <td class="p-3 border border-slate-200 text-center">
+                            <form action="/delete_material/{{ m.id }}" method="POST" class="inline">
+                                <button type="submit" onclick="return confirm('¿Estás seguro de eliminar este material del inventario?');" class="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-red-600 transition font-medium">Eliminar</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    {% if not materials %}
+                    <tr>
+                        <td colspan="4" class="p-4 text-center text-slate-400">No hay materiales registrados aún.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SOLICITAR MATERIAL -->
+        <form method="POST" class="bg-slate-50 p-4 md:p-6 rounded-xl mb-6 border border-slate-200">
+            <h3 class="font-bold mb-3 text-slate-900">Solicitar Material para tu Clase</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <select name="material_id" required class="border border-slate-300 p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
                     <option value="">Selecciona material...</option>
                     {% for m in materials %}
                     <option value="{{ m.id }}">{{ m.name }} (Stock total: {{ m.total_stock }})</option>
                     {% endfor %}
                 </select>
-                <input type="number" name="quantity" placeholder="Cantidad" min="1" required class="border p-2 rounded">
-                <input type="date" name="class_date" required class="border p-2 rounded">
-                <button type="submit" name="request_material" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Solicitar</button>
+                <input type="number" name="quantity" placeholder="Cantidad" min="1" required class="border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                <input type="date" name="class_date" required class="border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                <button type="submit" name="request_material" class="bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition font-medium shadow-lg shadow-emerald-600/20">Solicitar</button>
             </div>
         </form>
 
-        <h3 class="font-bold text-lg mb-3">Historial de Solicitudes Registradas</h3>
-        <table class="w-full border-collapse">
-            <thead>
-                <tr class="bg-slate-200 text-left">
-                    <th class="p-2 border">Fecha de Clase</th>
-                    <th class="p-2 border">Maestro</th>
-                    <th class="p-2 border">Material</th>
-                    <th class="p-2 border">Cant.</th>
-                    <th class="p-2 border text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody> 
-            
-                {% for r in requests %}
-                <tr class="hover:bg-slate-50">
-                    <td class="p-2 border">{{ r.class_date }}</td>
-                    <td class="p-2 border">{{ r.teacher_name }}</td>
-                    <td class="p-2 border">{{ r.material_name }}</td>
-                    <td class="p-2 border">{{ r.quantity }}</td>
-                    <td class="p-2 border text-center">
-                        {% if session['user'] and session['user']['email'] == 'aleksanderportaro@gmail.com' %}
-                          <form action="/delete_material_request/{{ r.id }}" method="POST" class="inline">
-                            <button type="submit" onclick="return confirm('¿Estás seguro de eliminar este registro del historial?');" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">Eliminar</button>
-                          </form>
-                {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- HISTORIAL DE SOLICITUDES -->
+        <h3 class="font-bold text-lg mb-3 text-slate-900">Historial de Solicitudes Registradas</h3>
+        <div class="overflow-x-auto shadow-md rounded-xl border border-slate-200">
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-slate-900 text-white text-left">
+                        <th class="p-3 border border-slate-700">Fecha de Clase</th>
+                        <th class="p-3 border border-slate-700 hidden sm:table-cell">Maestro</th>
+                        <th class="p-3 border border-slate-700">Material</th>
+                        <th class="p-3 border border-slate-700 text-center">Cant.</th>
+                        <th class="p-3 border border-slate-700 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in requests %}
+                    <tr class="hover:bg-sky-50/50 border-b border-slate-100">
+                        <td class="p-3 border border-slate-200 text-sm text-slate-700">{{ r.class_date }}</td>
+                        <td class="p-3 border border-slate-200 text-sm hidden sm:table-cell text-slate-600">{{ r.teacher_name }}</td>
+                        <td class="p-3 border border-slate-200 text-sm font-medium text-slate-900">{{ r.material_name }}</td>
+                        <td class="p-3 border border-slate-200 text-center text-sm text-slate-700">{{ r.quantity }}</td>
+                        <td class="p-3 border border-slate-200 text-center">
+                            {% if session['user'] and session['user']['email'] == 'aleksanderportaro@gmail.com' %}
+                              <form action="/delete_material_request/{{ r.id }}" method="POST" class="inline">
+                                <button type="submit" onclick="return confirm('¿Estás seguro de eliminar este registro del historial?');" class="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-red-600 transition font-medium">Eliminar</button>
+                              </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </body>
 </html>
