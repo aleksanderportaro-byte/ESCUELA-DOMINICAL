@@ -375,7 +375,7 @@ def admin_attendance():
         clases=clases,
     )
     
-    @app.route('/edit_student_class/<int:student_id>', methods=['POST'])
+@app.route('/edit_student_class/<int:student_id>', methods=['POST'])
 def edit_student_class(student_id):
     clase_id = request.form.get('clase_id')
     conn = get_db_connection()
