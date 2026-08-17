@@ -423,7 +423,7 @@ def admin_classes():
             assignment_type = request.form['assignment_type']
             session_date = request.form.get('session_date') if assignment_type == 'temporary' else None
 
-            # Convertir cadena vacía a None de forma segura para la base de datos
+            # Si se seleccionó un usuario del desplegable, lo usamos; si está vacío, guardamos el nombre escrito a mano
             u_id = int(user_id) if user_id and user_id.isdigit() else None
             c_name = custom_teacher_name if not u_id else None
 
