@@ -338,9 +338,8 @@ def admin_attendance():
             conn.commit()
             flash('Asistencia guardada correctamente.', 'success')
 
-    # ORDENADO AUTOMÁTICAMENTE POR APELLIDO (A - Z)
     cur.execute(
-        "SELECT id, first_name, last_name FROM students ORDER BY last_name ASC,"
+        "SELECT id, first_name, last_name, clase_id FROM students ORDER BY last_name ASC,",
         " first_name ASC;"
     )
     students = cur.fetchall()
