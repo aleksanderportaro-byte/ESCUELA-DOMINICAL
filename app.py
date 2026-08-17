@@ -378,12 +378,18 @@ def admin_attendance():
 @app.route('/edit_student_class/<int:student_id>', methods=['POST'])
 def edit_student_class(student_id):
     clase_id = request.form.get('clase_id')
+    
+    # Convertir cadena vacía a None para evitar errores en la base de datos
+    if not clase_id:
+        clase_id = None
+
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("UPDATE students SET clase_id = %s WHERE id = %s", (clase_id, student_id))
     conn.commit()
     cur.close()
     conn.close()
+    
     flash('Clase del alumno actualizada con éxito.', 'success')
     return redirect(url_for('admin_attendance'))
 
