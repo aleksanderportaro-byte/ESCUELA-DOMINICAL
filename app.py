@@ -41,14 +41,37 @@ def init_db():
             id SERIAL PRIMARY KEY,
             class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
             student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
-            date DATE NOT NULL,
-            status VARCHAR(20) NOT NULL
+            class_date DATE NOT NULL,
+            present BOOLEAN NOT NULL DEFAULT false,
+            UNIQUE(student_id, class_date)
         );
     """)
     
     # Asegurar que tenga la columna class_id si la tabla ya existía de antes
     try:
         cur.execute("ALTER TABLE attendance ADD COLUMN class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE;")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Asegurar compatibilidad: renombrar columnas antiguas si existen
+    try:
+        cur.execute("ALTER TABLE attendance RENAME COLUMN date TO class_date;")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    try:
+        cur.execute("ALTER TABLE attendance ADD COLUMN class_date DATE;")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    try:
+        cur.execute("ALTER TABLE attendance ADD COLUMN present BOOLEAN DEFAULT false;")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    try:
+        cur.execute("ALTER TABLE attendance ADD UNIQUE(student_id, class_date);")
         conn.commit()
     except Exception:
         conn.rollback()
@@ -81,7 +104,7 @@ def init_db():
     except Exception:
         conn.rollback()
 
-    # Tabla de Alumnos
+    # Tabla de Alumnos (asegurar que tenga la columna clase_id)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS students (
             id SERIAL PRIMARY KEY,
@@ -89,17 +112,11 @@ def init_db():
             last_name VARCHAR(100) NOT NULL
         );
     """)
-
-    # Tabla de Asistencia vinculada a cada Clase
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS attendance (
-            id SERIAL PRIMARY KEY,
-            class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
-            student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
-            date DATE NOT NULL,
-            status VARCHAR(20) NOT NULL
-        );
-    """)
+    try:
+        cur.execute("ALTER TABLE students ADD COLUMN clase_id INTEGER REFERENCES classes(id) ON DELETE SET NULL;")
+        conn.commit()
+    except Exception:
+        conn.rollback()
     
     # Tabla de Estrategias de Asistencia
     cur.execute("""
@@ -775,11 +792,79 @@ def delete_material(material_id):
 def ver_asistencia_clase(clase_id):
     conn = get_db_connection()
     cur = conn.cursor()
+
     cur.execute("SELECT * FROM classes WHERE id = %s", (clase_id,))
     clase = cur.fetchone()
+    if not clase:
+        cur.close()
+        conn.close()
+        flash('Clase no encontrada.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # Estadísticas semanales de asistencia para esta clase
+    try:
+        cur.execute("""
+            SELECT c.name as class_name,
+                   a.class_date as week_start,
+                   COUNT(CASE WHEN a.present = true THEN 1 END) as total_presentes,
+                   COUNT(a.id) as total_registrados
+            FROM attendance a
+            JOIN classes c ON a.class_id = c.id
+            WHERE a.class_id = %s
+            GROUP BY c.name, a.class_date
+            ORDER BY a.class_date DESC;
+        """, (clase_id,))
+        weekly_stats = cur.fetchall()
+    except Exception:
+        conn.rollback()
+        weekly_stats = []
+
+    # Maestros asignados a esta clase
+    try:
+        cur.execute("""
+            SELECT ct.class_id, ct.user_id, ct.custom_teacher_name, c.name as class_name
+            FROM class_teachers ct
+            JOIN classes c ON ct.class_id = c.id
+            WHERE ct.class_id = %s;
+        """, (clase_id,))
+        raw_ct = cur.fetchall()
+        class_teachers_map = {}
+        for row in raw_ct:
+            cid = row['class_id']
+            if cid not in class_teachers_map:
+                class_teachers_map[cid] = {'class_name': row['class_name'], 'teachers': []}
+            display = row['custom_teacher_name']
+            if not display and row['user_id']:
+                cur.execute("SELECT name FROM users WHERE id = %s", (row['user_id'],))
+                u = cur.fetchone()
+                display = u['name'] if u else 'Desconocido'
+            class_teachers_map[cid]['teachers'].append(display or 'Sin nombre')
+    except Exception:
+        conn.rollback()
+        class_teachers_map = {}
+
+    # Solo esta clase para la sección de "sin maestro"
+    cur.execute("SELECT id, name FROM classes WHERE id = %s ORDER BY name ASC;", (clase_id,))
+    all_classes = cur.fetchall()
+
+    # Estrategias
+    try:
+        cur.execute("SELECT * FROM attendance_strategies ORDER BY id DESC;")
+        strategies = cur.fetchall()
+    except Exception:
+        conn.rollback()
+        strategies = []
+
     cur.close()
     conn.close()
-    return render_template('attendance_stats.html', clase=clase)
+    return render_template(
+        'attendance_stats.html',
+        clase=clase,
+        weekly_stats=weekly_stats,
+        strategies=strategies,
+        class_teachers_map=class_teachers_map,
+        all_classes=all_classes,
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
