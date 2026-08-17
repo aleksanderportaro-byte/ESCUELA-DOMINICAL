@@ -57,7 +57,48 @@
                         <th class="p-2 border text-center">Asistió</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody><table class="w-full border-collapse mb-4">
+        <thead>
+            <tr class="bg-slate-200 text-left">
+                <th class="p-2 border">Apellidos y Nombres</th>
+                <th class="p-2 border">Clase</th>
+                <th class="p-2 border text-center">Asistió</th>
+                <th class="p-2 border text-center">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr>
+                <td class="p-2 border font-medium">{{ s.last_name }}, {{ s.first_name }}</td>
+                
+                <!-- Menú desplegable para cambiar o asignar clase al instante -->
+                <td class="p-2 border">
+                    <form action="{{ url_for('edit_student_class', student_id=s.id) }}" method="POST" class="inline">
+                        <select name="clase_id" class="border p-1 rounded text-sm bg-white w-full" onchange="this.form.submit()">
+                            <option value="">Sin Clase</option>
+                            {% for c in clases %}
+                            <option value="{{ c.id }}" {% if s.clase_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
+
+                <td class="p-2 border text-center">
+                    <input type="checkbox" name="present_{{ s.id }}" {% if attendance_map.get(s.id) %}checked{% endif %}>
+                </td>
+
+                <!-- Botón de eliminar con icono -->
+                <td class="p-2 border text-center">
+                    <form action="{{ url_for('delete_student', student_id=s.id) }}" method="POST" class="inline">
+                        <button type="submit" onclick="return confirm('¿Estás seguro de eliminar a este alumno?')" class="text-red-600 hover:text-red-800 text-lg" title="Eliminar alumno">
+                            🗑️
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
                     {% for s in students %}
                     <tr>
                         <td class="p-2 border font-medium">{{ s.last_name }}, {{ s.first_name }}</td>

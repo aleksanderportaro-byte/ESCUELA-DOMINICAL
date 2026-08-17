@@ -374,6 +374,29 @@ def admin_attendance():
         attendance_map=attendance_map,
         clases=clases,
     )
+    
+    @app.route('/edit_student_class/<int:student_id>', methods=['POST'])
+def edit_student_class(student_id):
+    clase_id = request.form.get('clase_id')
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE students SET clase_id = %s WHERE id = %s", (clase_id, student_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    flash('Clase del alumno actualizada con éxito.', 'success')
+    return redirect(url_for('admin_attendance'))
+
+@app.route('/delete_student/<int:student_id>', methods=['POST'])
+def delete_student(student_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM students WHERE id = %s", (student_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    flash('Alumno eliminado del registro.', 'success')
+    return redirect(url_for('admin_attendance'))
 
 # MÓDULO 4: GESTIÓN DE MAESTROS Y USUARIOS (Exclusivo Administrador)
 @app.route('/admin/classes', methods=['GET', 'POST'])
@@ -395,36 +418,65 @@ def admin_classes():
 
         elif 'assign_teacher' in request.form:
             class_id = request.form['class_id']
-            user_id = request.form['user_id']
+            user_id = request.form.get('user_id')
+            custom_teacher_name = request.form.get('custom_teacher_name', '').strip()
             assignment_type = request.form['assignment_type']
-            session_date = request.form['session_date'] if assignment_type == 'temporary' else None
-            
+            session_date = request.form.get('session_date') if assignment_type == 'temporary' else None
+
+            u_id = user_id if user_id else None
+            c_name = custom_teacher_name if not user_id else None
+
             cur.execute("""
-                INSERT INTO class_teachers (class_id, user_id, assignment_type, session_date) 
-                VALUES (%s, %s, %s, %s)
-            """, (class_id, user_id, assignment_type, session_date))
+                INSERT INTO class_teachers (class_id, user_id, custom_teacher_name, assignment_type, session_date)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (class_id, u_id, c_name, assignment_type, session_date))
             conn.commit()
-            flash('Maestro asignado a la clase correctamente.', 'success')
+            flash('Maestro asignado correctamente.', 'success')
 
     cur.execute("SELECT * FROM classes ORDER BY name ASC;")
-    classes = cur.fetchall()
+    clases = cur.fetchall()
 
     cur.execute("SELECT id, name, email FROM users ORDER BY name ASC;")
     teachers = cur.fetchall()
 
     cur.close()
     conn.close()
-    return render_template('admin_classes.html', classes=classes, teachers=teachers)
+    return render_template('admin_classes.html', clases=clases, teachers=teachers)
+
+@app.route('/delete_class/<int:class_id>', methods=['POST'])
+def delete_class(class_id):
+    if 'user' not in session or session['user']['role'] != 'admin':
+        flash('Acceso restringido.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM classes WHERE id = %s", (class_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    flash('Clase eliminada correctamente.', 'success')
+    return redirect(url_for('admin_classes'))
 
 # GESTIÓN DE PERSONAL Y CARGOS (Solo Admin)
 @app.route('/admin/teachers', methods=['GET', 'POST'])
 def admin_teachers():
     if 'user' not in session or session['user']['role'] != 'admin':
         flash('Acceso restringido solo al Administrador.', 'danger')
+        return redirect(url_fo@app.route('/delete_class/<int:class_id>', methods=['POST'])
+def delete_class(class_id):
+    if 'user' not in session or session['user']['role'] != 'admin':
+        flash('Acceso restringido.', 'danger')
         return redirect(url_for('dashboard'))
-        
+
     conn = get_db_connection()
     cur = conn.cursor()
+    cur.execute("DELETE FROM classes WHERE id = %s", (class_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    flash('Clase eliminada correctamente.', 'success')
+    return redirect(url_for('admin_classes'))
     
     if request.method == 'POST':
         if 'update_user' in request.form:

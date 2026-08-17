@@ -39,41 +39,44 @@
             </div>
 
             <!-- Formulario Asignar Maestro -->
-            <div class="bg-slate-50 p-4 rounded-lg border">
-                <h2 class="font-bold text-lg mb-3 text-slate-700">Asignar Maestro a Clase</h2>
-                <form method="POST" class="space-y-3">
-                    <input type="hidden" name="assign_teacher" value="1">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600">Seleccionar Clase</label>
-                        <select name="class_id" required class="w-full border p-2 rounded">
-                            {% for c in classes %}
-                            <option value="{{ c.id }}">{{ c.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600">Seleccionar Maestro</label>
-                        <select name="user_id" required class="w-full border p-2 rounded">
-                            {% for t in teachers %}
-                            <option value="{{ t.id }}">{{ t.name }} ({{ t.email }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600">Tipo de Asignación</label>
-                        <select name="assignment_type" id="assignment_type" class="w-full border p-2 rounded" onchange="toggleDate(this.value)">
-                            <option value="permanent">Permanente</option>
-                            <option value="temporary">Solo por una clase (Fecha específica)</option>
-                        </select>
-                    </div>
-                    <div id="date_field" style="display:none;">
-                        <label class="block text-sm font-medium text-slate-600">Fecha de la Clase</label>
-                        <input type="date" name="session_date" class="w-full border p-2 rounded">
-                    </div>
-                    <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Asignar Maestro</button>
-                </form>
-            </div>
-        </div>
+            <form action="{{ url_for('admin_classes') }}" method="POST" class="bg-slate-50 p-4 rounded-lg border mb-6">
+    <h3 class="font-bold text-lg mb-4 text-slate-700">Asignar Maestro a Clase</h3>
+    
+    <!-- Selector de Clase -->
+    <div class="mb-3">
+        <label class="block text-sm font-medium text-slate-600">Seleccionar Clase</label>
+        <select name="class_id" required class="w-full border p-2 rounded bg-white">
+            <option value="">-- Selecciona una clase --</option>
+            {% for c in clases %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Opcional: Usuario Registrado -->
+    <div class="mb-3">
+        <label class="block text-sm font-medium text-slate-600">Seleccionar Usuario Registrado (Opcional)</label>
+        <select name="user_id" class="w-full border p-2 rounded bg-white">
+            <option value="">-- Seleccionar de la lista --</option>
+            {% for t in teachers %}
+            <option value="{{ t.id }}">{{ t.name }} ({{ t.email }})</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Opcional: Nombre escrito a mano -->
+    <div class="mb-3">
+        <label class="block text-sm font-medium text-slate-600">O Escribir Nombre del Maestro (Si no está registrado)</label>
+        <input type="text" name="custom_teacher_name" placeholder="Ej. Juan Pérez" class="w-full border p-2 rounded">
+    </div>
+
+    <!-- Tipo de asignación y fecha (según tu código previo) -->
+    <!-- ... tus campos de assignment_type y session_date ... -->
+
+    <button type="submit" name="assign_teacher" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Asignar Maestro
+    </button>
+</form>
 
         <!-- Listado de Clases Actuales -->
         <div class="mt-8">
