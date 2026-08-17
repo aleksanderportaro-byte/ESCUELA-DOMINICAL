@@ -417,22 +417,23 @@ def admin_classes():
             flash('Clase creada exitosamente.', 'success')
 
         elif 'assign_teacher' in request.form:
-            class_id = request.form['class_id']
+            class_id = request.form.get('class_id')
             user_id = request.form.get('user_id')
             custom_teacher_name = request.form.get('custom_teacher_name', '').strip()
-            assignment_type = request.form['assignment_type']
+            assignment_type = request.form.get('assignment_type')
             session_date = request.form.get('session_date') if assignment_type == 'temporary' else None
 
-            # Si se seleccionó un usuario del desplegable, lo usamos; si está vacío, guardamos el nombre escrito a mano
+            # Manejo seguro para usuario registrado o nombre escrito a mano
             u_id = int(user_id) if user_id and user_id.isdigit() else None
             c_name = custom_teacher_name if not u_id else None
 
-            cur.execute("""
-                INSERT INTO class_teachers (class_id, user_id, custom_teacher_name, assignment_type, session_date)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (class_id, u_id, c_name, assignment_type, session_date))
-            conn.commit()
-            flash('Maestro asignado correctamente.', 'success')
+            if class_id:
+                cur.execute("""
+                    INSERT INTO class_teachers (class_id, user_id, custom_teacher_name, assignment_type, session_date)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (class_id, u_id, c_name, assignment_type, session_date))
+                conn.commit()
+                flash('Maestro asignado correctamente.', 'success')
 
     cur.execute("SELECT * FROM classes ORDER BY name ASC;")
     clases = cur.fetchall()
