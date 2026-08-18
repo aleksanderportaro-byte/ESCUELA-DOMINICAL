@@ -500,6 +500,35 @@ def delete_student(student_id):
     flash('Alumno eliminado del registro.', 'success')
     return redirect(url_for('admin_attendance'))
 
+@app.route('/delete_attendance_date', methods=['POST'])
+def delete_attendance_date():
+    if 'user' not in session or session['user']['role'] != 'admin':
+        flash('Acceso restringido.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    class_id = request.form.get('class_id')
+    fecha = request.form.get('fecha')
+
+    if not class_id or not fecha:
+        flash('Datos incompletos para eliminar.', 'danger')
+        return redirect(url_for('attendance_stats'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        DELETE FROM attendance a
+        USING students s
+        WHERE a.student_id = s.id
+          AND s.clase_id = %s
+          AND a.class_date = %s
+    """, (class_id, fecha))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash('Registros de asistencia eliminados para la fecha seleccionada.', 'success')
+    return redirect(url_for('attendance_stats'))
+
 # MÓDULO 4: GESTIÓN DE MAESTROS Y USUARIOS (Exclusivo Administrador)
 @app.route('/admin/classes', methods=['GET', 'POST'])
 def admin_classes():
@@ -705,7 +734,8 @@ def attendance_stats():
     # Estadísticas: asistencia por clase y fecha
     try:
         cur.execute("""
-            SELECT c.name AS class_name,
+            SELECT c.id AS class_id,
+                   c.name AS class_name,
                    a.class_date AS week_start,
                    COUNT(CASE WHEN a.present = true THEN 1 END) AS total_presentes,
                    COUNT(a.id) AS total_registrados,
@@ -718,7 +748,7 @@ def attendance_stats():
             FROM attendance a
             JOIN students s ON a.student_id = s.id
             JOIN classes c ON s.clase_id = c.id
-            GROUP BY c.name, a.class_date
+            GROUP BY c.id, c.name, a.class_date
             ORDER BY a.class_date DESC, c.name ASC;
         """)
         weekly_stats = cur.fetchall()

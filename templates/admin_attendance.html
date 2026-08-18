@@ -48,6 +48,23 @@
         </form>
 
         {% if selected_date %}
+        <!-- Filtros de búsqueda -->
+        <div class="bg-slate-50 p-4 md:p-6 rounded-xl mb-6 border border-slate-200 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div class="w-full sm:w-1/2">
+                <label for="filterName" class="block text-sm font-medium text-slate-600 mb-1">Buscar por Apellidos y Nombres</label>
+                <input type="text" id="filterName" placeholder="Escribe un nombre..." class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition" oninput="filtrarTabla()">
+            </div>
+            <div class="w-full sm:w-1/2">
+                <label for="filterClase" class="block text-sm font-medium text-slate-600 mb-1">Filtrar por Clase</label>
+                <select id="filterClase" class="w-full border border-slate-300 p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition" onchange="filtrarTabla()">
+                    <option value="">Todas las clases</option>
+                    {% for c in clases %}
+                        <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
         <!-- FORMULARIO ÚNICO: Asistencia + Asignación de Clase -->
         <form method="POST">
             <input type="hidden" name="class_date" value="{{ selected_date }}">
@@ -65,7 +82,7 @@
                     </thead>
                     <tbody>
                         {% for s in students %}
-                        <tr class="hover:bg-sky-50/50 border-b border-slate-100">
+                        <tr class="hover:bg-sky-50/50 border-b border-slate-100" data-clase-id="{{ s.clase_id }}" data-name="{{ s.last_name }}, {{ s.first_name }}">
                             <td class="p-3 border border-slate-200 font-medium text-sm text-slate-900">{{ s.last_name }}, {{ s.first_name }}</td>
 
                             <!-- Selector de clase -->
@@ -101,5 +118,26 @@
         <p class="text-slate-400 italic">Selecciona una fecha arriba para habilitar la toma de asistencia.</p>
         {% endif %}
     </div>
+
+    <script>
+        function filtrarTabla() {
+            const texto = document.getElementById('filterName').value.toLowerCase();
+            const claseId = document.getElementById('filterClase').value;
+            const filas = document.querySelectorAll('tbody tr');
+
+            filas.forEach(function(fila) {
+                const nombre = (fila.getAttribute('data-name') || '').toLowerCase();
+                const fClaseId = fila.getAttribute('data-clase-id') || '';
+                const coincideNombre = !texto || nombre.includes(texto);
+                const coincideClase = !claseId || fClaseId === claseId;
+
+                if (coincideNombre && coincideClase) {
+                    fila.style.display = '';
+                } else {
+                    fila.style.display = 'none';
+                }
+            });
+        }
+    </script>
 </body>
 </html>
