@@ -705,12 +705,19 @@ def attendance_stats():
     # Estadísticas: asistencia por clase y fecha
     try:
         cur.execute("""
-            SELECT c.name as class_name,
-                   a.class_date as week_start,
-                   COUNT(CASE WHEN a.present = true THEN 1 END) as total_presentes,
-                   COUNT(a.id) as total_registrados
+            SELECT c.name AS class_name,
+                   a.class_date AS week_start,
+                   COUNT(CASE WHEN a.present = true THEN 1 END) AS total_presentes,
+                   COUNT(a.id) AS total_registrados,
+                   ROUND(
+                       CASE WHEN COUNT(a.id) > 0
+                            THEN COUNT(CASE WHEN a.present = true THEN 1 END)::numeric / COUNT(a.id) * 100
+                            ELSE 0
+                       END, 1
+                   ) AS porcentaje
             FROM attendance a
-            JOIN classes c ON a.class_id = c.id
+            JOIN students s ON a.student_id = s.id
+            JOIN classes c ON s.clase_id = c.id
             GROUP BY c.name, a.class_date
             ORDER BY a.class_date DESC, c.name ASC;
         """)
@@ -804,13 +811,20 @@ def ver_asistencia_clase(clase_id):
     # Estadísticas semanales de asistencia para esta clase
     try:
         cur.execute("""
-            SELECT c.name as class_name,
-                   a.class_date as week_start,
-                   COUNT(CASE WHEN a.present = true THEN 1 END) as total_presentes,
-                   COUNT(a.id) as total_registrados
+            SELECT c.name AS class_name,
+                   a.class_date AS week_start,
+                   COUNT(CASE WHEN a.present = true THEN 1 END) AS total_presentes,
+                   COUNT(a.id) AS total_registrados,
+                   ROUND(
+                       CASE WHEN COUNT(a.id) > 0
+                            THEN COUNT(CASE WHEN a.present = true THEN 1 END)::numeric / COUNT(a.id) * 100
+                            ELSE 0
+                       END, 1
+                   ) AS porcentaje
             FROM attendance a
-            JOIN classes c ON a.class_id = c.id
-            WHERE a.class_id = %s
+            JOIN students s ON a.student_id = s.id
+            JOIN classes c ON s.clase_id = c.id
+            WHERE s.clase_id = %s
             GROUP BY c.name, a.class_date
             ORDER BY a.class_date DESC;
         """, (clase_id,))
