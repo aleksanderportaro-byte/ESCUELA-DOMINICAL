@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estadísticas y Estrategias de Asistencia</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-6">
     <div class="max-w-6xl mx-auto bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-slate-200">
@@ -58,7 +59,18 @@
 
         <!-- SECCIÓN 2: Estadísticas Semanales de Asistencia -->
         <div class="mb-10">
-            <h2 class="text-lg md:text-xl font-bold text-slate-900 mb-4">Asistencia Semanal por Clase (Domingos)</h2>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                <h2 class="text-lg md:text-xl font-bold text-slate-900">Asistencia Semanal por Clase (Domingos)</h2>
+                <div class="flex items-center gap-2">
+                    <label for="dateFilter" class="text-sm font-medium text-slate-600">Fecha:</label>
+                    <select id="dateFilter" onchange="filtrarPorFecha()" class="border border-slate-300 p-2 rounded-xl bg-white text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                        <option value="">Todas las fechas</option>
+                        {% for d in available_dates %}
+                            <option value="{{ d }}">{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
             <div class="overflow-x-auto shadow-md rounded-xl border border-slate-200">
                 <table class="w-full border-collapse">
                     <thead>
@@ -74,7 +86,7 @@
                     <tbody>
                         {% for stat in weekly_stats %}
                         {% set pct = ((stat.total_presentes / stat.total_registrados) * 100)|round(1) if stat.total_registrados > 0 else 0 %}
-                        <tr class="hover:bg-sky-50/50 border-b border-slate-100" data-class-name="{{ stat.class_name }}">
+                        <tr class="hover:bg-sky-50/50 border-b border-slate-100" data-class-name="{{ stat.class_name }}" data-date="{{ stat.week_start }}">
                             <td class="p-3 border border-slate-200 font-medium text-sky-700">{{ stat.class_name }}</td>
                             <td class="p-3 border border-slate-200 text-slate-600">{{ stat.week_start }}</td>
                             <td class="p-3 border border-slate-200 text-center font-bold text-emerald-600">{{ stat.total_presentes }}</td>
@@ -102,6 +114,14 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2b: Gráfico de Tendencia de Asistencia -->
+        <div class="mb-10">
+            <h2 class="text-lg md:text-xl font-bold text-slate-900 mb-4">Tendencia de Asistencia</h2>
+            <div class="border border-slate-200 p-4 md:p-6 rounded-xl bg-slate-50">
+                <canvas id="tendenciaChart" height="100"></canvas>
             </div>
         </div>
 
@@ -176,14 +196,29 @@
     <script>
         let claseSeleccionada = null;
 
+        function aplicarFiltros() {
+            const texto = document.getElementById('dateFilter') ? document.getElementById('dateFilter').value : '';
+            const filas = document.querySelectorAll('tbody tr[data-class-name]');
+            filas.forEach(function(fila) {
+                const fechaFila = fila.getAttribute('data-date') || '';
+                const claseFila = fila.getAttribute('data-class-name') || '';
+                const coincideFecha = !texto || fechaFila === texto;
+                const coincideClase = !claseSeleccionada || claseFila === claseSeleccionada;
+                fila.style.display = (coincideFecha && coincideClase) ? '' : 'none';
+            });
+        }
+
+        function filtrarPorFecha() {
+            aplicarFiltros();
+        }
+
         function filtrarPorClase(nombreClase) {
             claseSeleccionada = nombreClase;
 
-            // Actualizar estado visual de las tarjetas
             const tarjetas = document.querySelectorAll('#gridClases [data-class-name]');
             tarjetas.forEach(function(t) {
                 if (nombreClase === null || t.getAttribute('data-class-name') === nombreClase) {
-                    t.classList.remove('opacity-40', 'ring-2', 'ring-sky-400');
+                    t.classList.remove('opacity-40');
                     t.classList.add('ring-2', 'ring-sky-400');
                 } else {
                     t.classList.add('opacity-40');
@@ -197,18 +232,59 @@
                 });
             }
 
-            // Filtrar filas de la tabla
-            const filas = document.querySelectorAll('tbody tr[data-class-name]');
-            filas.forEach(function(fila) {
-                if (nombreClase === null || fila.getAttribute('data-class-name') === nombreClase) {
-                    fila.style.display = '';
-                } else {
-                    fila.style.display = 'none';
+            aplicarFiltros();
+
+            document.getElementById('btnVerTodos').classList.toggle('hidden', nombreClase === null);
+        }
+
+        // Gráfico de Tendencia de Asistencia
+        const trendData = {{ trend_data_json|safe }};
+
+        const colores = {
+            'Clase de JAS': '#0ea5e9',
+            'Escuela Dominical': '#10b981',
+            'Clase de Hombres y Mujeres Jóvenes': '#f59e0b',
+            'Fundamentos del Evangelio': '#ef4444'
+        };
+
+        const datasets = Object.keys(trendData).map(function(nombre) {
+            const puntos = trendData[nombre];
+            return {
+                label: nombre,
+                data: puntos.map(function(p) { return p.pct; }),
+                borderColor: colores[nombre] || '#6b7280',
+                backgroundColor: (colores[nombre] || '#6b7280') + '33',
+                tension: 0.3,
+                fill: false,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            };
+        });
+
+        const allDates = [...new Set(Object.values(trendData).flat().map(function(p) { return p.date; }))];
+        allDates.sort(function(a, b) {
+            const [da, ma, ya] = a.split('/').map(Number);
+            const [db, mb, yb] = b.split('/').map(Number);
+            return new Date(ya, ma-1, da) - new Date(yb, mb-1, db);
+        });
+
+        if (datasets.length > 0) {
+            new Chart(document.getElementById('tendenciaChart'), {
+                type: 'line',
+                data: { labels: allDates, datasets: datasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, padding: 20 } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, title: { display: true, text: '% Asistencia' } },
+                        x: { title: { display: true, text: 'Fecha' } }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
                 }
             });
-
-            // Mostrar/ocultar botón "Ver todos"
-            document.getElementById('btnVerTodos').classList.toggle('hidden', nombreClase === null);
         }
     </script>
 </body>

@@ -1,4 +1,5 @@
 import os
+import json
 from flask import Flask, render_template, redirect, url_for, session, request, flash
 import psycopg
 from psycopg.rows import dict_row
@@ -756,6 +757,47 @@ def attendance_stats():
         conn.rollback()
         weekly_stats = []
 
+    # Fechas únicas disponibles para el selector
+    available_dates = sorted(set(
+        str(s['week_start']) for s in weekly_stats
+    ), reverse=True)
+
+    # Datos para gráfico de tendencia (porcentajes por clase y fecha, orden cronológico)
+    try:
+        cur.execute("""
+            SELECT c.name AS class_name,
+                   a.class_date,
+                   ROUND(
+                       CASE WHEN COUNT(a.id) > 0
+                            THEN COUNT(CASE WHEN a.present = true THEN 1 END)::numeric / COUNT(a.id) * 100
+                            ELSE 0
+                       END, 1
+                   ) AS porcentaje
+            FROM attendance a
+            JOIN students s ON a.student_id = s.id
+            JOIN classes c ON s.clase_id = c.id
+            GROUP BY c.name, a.class_date
+            ORDER BY a.class_date ASC;
+        """)
+        trend_rows = cur.fetchall()
+    except Exception:
+        conn.rollback()
+        trend_rows = []
+
+    trend_data = {}
+    for row in trend_rows:
+        name = row['class_name']
+        if name not in trend_data:
+            trend_data[name] = []
+        date_val = row['class_date']
+        date_str = date_val.strftime('%d/%m/%Y') if hasattr(date_val, 'strftime') else str(date_val)
+        trend_data[name].append({
+            'date': date_str,
+            'pct': float(row['porcentaje'])
+        })
+
+    trend_data_json = json.dumps(trend_data)
+
     # Maestros asignados por clase (usuarios + staff manual)
     cur.execute("""
         SELECT ct.class_id, ct.user_id, ct.custom_teacher_name, c.name as class_name
@@ -791,6 +833,8 @@ def attendance_stats():
         strategies=strategies,
         class_teachers_map=class_teachers_map,
         all_classes=all_classes,
+        available_dates=available_dates,
+        trend_data_json=trend_data_json,
     )
 
 @app.route('/delete_material_request/<int:req_id>', methods=['POST'])
@@ -899,6 +943,48 @@ def ver_asistencia_clase(clase_id):
         conn.rollback()
         strategies = []
 
+    # Fechas únicas disponibles para el selector
+    available_dates = sorted(set(
+        str(s['week_start']) for s in weekly_stats
+    ), reverse=True)
+
+    # Datos para gráfico de tendencia (porcentajes por clase y fecha, orden cronológico)
+    try:
+        cur.execute("""
+            SELECT c.name AS class_name,
+                   a.class_date,
+                   ROUND(
+                       CASE WHEN COUNT(a.id) > 0
+                            THEN COUNT(CASE WHEN a.present = true THEN 1 END)::numeric / COUNT(a.id) * 100
+                            ELSE 0
+                       END, 1
+                   ) AS porcentaje
+            FROM attendance a
+            JOIN students s ON a.student_id = s.id
+            JOIN classes c ON s.clase_id = c.id
+            WHERE s.clase_id = %s
+            GROUP BY c.name, a.class_date
+            ORDER BY a.class_date ASC;
+        """, (clase_id,))
+        trend_rows = cur.fetchall()
+    except Exception:
+        conn.rollback()
+        trend_rows = []
+
+    trend_data = {}
+    for row in trend_rows:
+        name = row['class_name']
+        if name not in trend_data:
+            trend_data[name] = []
+        date_val = row['class_date']
+        date_str = date_val.strftime('%d/%m/%Y') if hasattr(date_val, 'strftime') else str(date_val)
+        trend_data[name].append({
+            'date': date_str,
+            'pct': float(row['porcentaje'])
+        })
+
+    trend_data_json = json.dumps(trend_data)
+
     cur.close()
     conn.close()
     return render_template(
@@ -908,6 +994,8 @@ def ver_asistencia_clase(clase_id):
         strategies=strategies,
         class_teachers_map=class_teachers_map,
         all_classes=all_classes,
+        available_dates=available_dates,
+        trend_data_json=trend_data_json,
     )
 
 if __name__ == '__main__':
