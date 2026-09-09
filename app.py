@@ -827,6 +827,9 @@ def attendance_stats():
         str(s['week_start']) for s in weekly_stats
     ), reverse=True)
 
+    # Fecha más reciente (último domingo disponible) para seleccionar por defecto
+    default_date = available_dates[0] if available_dates else ''
+
     # Datos para gráfico de tendencia (porcentajes por clase y fecha, orden cronológico)
     try:
         cur.execute("""
@@ -902,6 +905,7 @@ def attendance_stats():
         class_teachers_map=class_teachers_map,
         all_classes=all_classes,
         available_dates=available_dates,
+        default_date=default_date,
         trend_data_json=trend_data_json,
         individual_json=individual_json,
     )
@@ -1017,6 +1021,9 @@ def ver_asistencia_clase(clase_id):
         str(s['week_start']) for s in weekly_stats
     ), reverse=True)
 
+    # Fecha más reciente (último domingo disponible) para seleccionar por defecto
+    default_date = available_dates[0] if available_dates else ''
+
     # Datos para gráfico de tendencia (porcentajes por clase y fecha, orden cronológico)
     try:
         cur.execute("""
@@ -1067,6 +1074,7 @@ def ver_asistencia_clase(clase_id):
         class_teachers_map=class_teachers_map,
         all_classes=all_classes,
         available_dates=available_dates,
+        default_date=default_date,
         trend_data_json=trend_data_json,
         individual_json=individual_json,
     )

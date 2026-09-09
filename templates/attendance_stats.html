@@ -66,7 +66,7 @@
                     <select id="dateFilter" onchange="filtrarPorFecha()" class="border border-slate-300 p-2 rounded-xl bg-white text-sm focus:ring-2 focus:ring-sky-500 outline-none">
                         <option value="">Todas las fechas</option>
                         {% for d in available_dates %}
-                            <option value="{{ d }}">{{ d }}</option>
+                            <option value="{{ d }}" {% if d == default_date %}selected{% endif %}>{{ d }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -444,6 +444,9 @@
         }
 
         poblarSelectoresIndividuales();
+
+        // Al cargar la página, mostrar solo las filas del último domingo seleccionado por defecto
+        aplicarFiltros();
     </script>
 </body>
 </html>
