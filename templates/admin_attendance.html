@@ -41,15 +41,8 @@
             <button type="submit" class="bg-sky-600 text-white px-5 py-2.5 rounded-xl hover:bg-sky-700 w-full sm:w-auto transition font-medium shadow-lg shadow-sky-600/20">Registrar Alumno</button>
         </form>
 
-        <!-- Selector de Fecha -->
-        <form method="GET" class="mb-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <label class="font-semibold text-sm text-slate-700">Seleccionar Fecha de Clase:</label>
-            <input type="date" name="date" value="{{ selected_date }}" onchange="this.form.submit()" class="border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
-        </form>
-
-        {% if selected_date %}
         <!-- Filtros de búsqueda -->
-        <div class="bg-slate-50 p-4 md:p-6 rounded-xl mb-6 border border-slate-200 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+        <div class="bg-slate-50 p-4 md:p-6 rounded-xl mb-4 border border-slate-200 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div class="w-full sm:w-1/2">
                 <label for="filterName" class="block text-sm font-medium text-slate-600 mb-1">Buscar por Apellidos y Nombres</label>
                 <input type="text" id="filterName" placeholder="Escribe un nombre..." class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition" oninput="filtrarTabla()">
@@ -67,8 +60,8 @@
 
         <!-- FORMULARIO ÚNICO: Asistencia + Asignación de Clase -->
         <form method="POST">
-            <input type="hidden" name="class_date" value="{{ selected_date }}">
-            <h3 class="font-bold text-lg mb-2 text-slate-900">Lista de Alumnos — {{ selected_date }}</h3>
+            <h3 class="font-bold text-lg mb-2 text-slate-900">Lista de Alumnos — Últimos 5 Domingos</h3>
+            <p class="text-slate-500 text-sm mb-3">Marca la asistencia para cada uno de los domingos de clases.</p>
 
             <div class="overflow-x-auto shadow-md rounded-xl mb-4 border border-slate-200">
                 <table class="w-full border-collapse">
@@ -76,7 +69,9 @@
                         <tr class="bg-slate-900 text-white text-left">
                             <th class="p-3 border border-slate-700">Apellidos y Nombres</th>
                             <th class="p-3 border border-slate-700 hidden sm:table-cell">Clase</th>
-                            <th class="p-3 border border-slate-700 text-center">Asistió</th>
+                            {% for label in sunday_labels %}
+                            <th class="p-3 border border-slate-700 text-center whitespace-nowrap text-xs">{{ label }}</th>
+                            {% endfor %}
                             <th class="p-3 border border-slate-700 text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -95,10 +90,14 @@
                                 </select>
                             </td>
 
-                            <!-- Checkbox de asistencia -->
+                            <!-- Checkbox de asistencia para cada domingo -->
+                            {% for ds in sunday_strings %}
                             <td class="p-3 border border-slate-200 text-center">
-                                <input type="checkbox" name="present_{{ s.id }}" {% if attendance_map.get(s.id) %}checked{% endif %} class="w-4 h-4 text-sky-600 rounded focus:ring-sky-500">
+                                <input type="checkbox" name="present_{{ s.id }}_{{ ds }}"
+                                       {% if attendance_map.get(s.id, {}).get(ds) %}checked{% endif %}
+                                       class="w-4 h-4 text-sky-600 rounded focus:ring-sky-500">
                             </td>
+                            {% endfor %}
 
                             <!-- Botón de eliminar -->
                             <td class="p-3 border border-slate-200 text-center">
@@ -114,9 +113,6 @@
 
             <button type="submit" name="save_attendance" class="bg-emerald-600 text-white px-6 py-2.5 rounded-xl hover:bg-emerald-700 font-semibold w-full sm:w-auto transition shadow-lg shadow-emerald-600/20">Guardar Asistencia y Clases</button>
         </form>
-        {% else %}
-        <p class="text-slate-400 italic">Selecciona una fecha arriba para habilitar la toma de asistencia.</p>
-        {% endif %}
     </div>
 
     <script>

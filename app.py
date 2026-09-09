@@ -1,5 +1,8 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import json
+from datetime import datetime, timedelta
 from flask import Flask, render_template, redirect, url_for, session, request, flash
 import psycopg
 from psycopg.rows import dict_row
@@ -173,6 +176,57 @@ try:
     init_db()
 except Exception as e:
     print(f"Error al conectar con Neon (Verifica tu contraseña): {e}")
+
+def build_individual_data(cur, clase_id=None, semanas=5):
+    # Últimos N domingos (por defecto 5) hacia atrás desde hoy
+    today = datetime.today()
+    days_since_sunday = (today.weekday() + 1) % 7
+    last_sunday = today - timedelta(days=days_since_sunday)
+    sundays = [last_sunday - timedelta(weeks=i) for i in range(semanas - 1, -1, -1)]
+    sunday_iso = [s.strftime('%Y-%m-%d') for s in sundays]
+
+    if clase_id is None:
+        cur.execute("""
+            SELECT s.id, s.first_name, s.last_name, s.clase_id, c.name AS clase_nombre
+            FROM students s
+            LEFT JOIN classes c ON s.clase_id = c.id
+            ORDER BY s.last_name ASC, s.first_name ASC;
+        """)
+    else:
+        cur.execute("""
+            SELECT s.id, s.first_name, s.last_name, s.clase_id, c.name AS clase_nombre
+            FROM students s
+            LEFT JOIN classes c ON s.clase_id = c.id
+            WHERE s.clase_id = %s
+            ORDER BY s.last_name ASC, s.first_name ASC;
+        """, (clase_id,))
+    student_rows = cur.fetchall()
+
+    history_map = {}
+    if sunday_iso:
+        cur.execute(
+            'SELECT student_id, class_date, present FROM attendance WHERE class_date = ANY(%s);',
+            (sunday_iso,),
+        )
+        for rec in cur.fetchall():
+            sid = rec['student_id']
+            if sid not in history_map:
+                history_map[sid] = {}
+            history_map[sid][str(rec['class_date'])] = bool(rec['present'])
+
+    return json.dumps({
+        'fechas': sunday_iso,
+        'alumnos': [
+            {
+                'id': r['id'],
+                'nombre': f"{r['last_name']}, {r['first_name']}",
+                'clase_id': r['clase_id'],
+                'clase_nombre': r['clase_nombre'] or 'Sin clase',
+                'historial': {fecha: history_map.get(r['id'], {}).get(fecha, None) for fecha in sunday_iso},
+            }
+            for r in student_rows
+        ],
+    }, ensure_ascii=False)
 
 @app.route('/')
 def index():
@@ -389,10 +443,9 @@ def admin_attendance():
         if 'add_student' in request.form:
             first_name = request.form['first_name'].strip()
             last_name = request.form['last_name'].strip()
-            clase_id = request.form.get('clase_id') # Capturamos la clase seleccionada
+            clase_id = request.form.get('clase_id')
             
             if first_name and last_name:
-                # Asegúrate de que tu tabla 'students' tenga la columna 'clase_id'
                 cur.execute(
                     "INSERT INTO students (first_name, last_name, clase_id) VALUES (%s, %s, %s)", 
                     (first_name, last_name, clase_id)
@@ -401,58 +454,70 @@ def admin_attendance():
                 flash('Alumno registrado y asignado a la clase correctamente.', 'success')
                 
         elif 'save_attendance' in request.form:
-            class_date = request.form['class_date']
+            today = datetime.today()
+            days_since_sunday = (today.weekday() + 1) % 7
+            last_sunday = today - timedelta(days=days_since_sunday)
+            sunday_dates = [(last_sunday - timedelta(weeks=i)).strftime('%Y-%m-%d') for i in range(4, -1, -1)]
+
             cur.execute("SELECT id FROM students;")
             all_students = cur.fetchall()
 
             for student in all_students:
                 s_id = student['id']
-                present = f'present_{s_id}' in request.form
-                cur.execute('''
-                    INSERT INTO attendance (student_id, class_date, present)
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (student_id, class_date)
-                    DO UPDATE SET present = EXCLUDED.present;
-                ''', (s_id, class_date, present))
-
                 clase_val = request.form.get(f'clase_id_{s_id}')
                 clase_id = int(clase_val) if clase_val and clase_val.isdigit() else None
                 cur.execute("UPDATE students SET clase_id = %s WHERE id = %s", (clase_id, s_id))
 
+                for sd in sunday_dates:
+                    present = f'present_{s_id}_{sd}' in request.form
+                    cur.execute('''
+                        INSERT INTO attendance (student_id, class_date, present)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (student_id, class_date)
+                        DO UPDATE SET present = EXCLUDED.present;
+                    ''', (s_id, sd, present))
+
             conn.commit()
-            flash('Asistencia y asignación de clases guardadas correctamente.', 'success')
+            flash('Asistencia de los 5 domingos guardada correctamente.', 'success')
 
     cur.execute(
         "SELECT id, first_name, last_name, clase_id FROM students ORDER BY last_name ASC, first_name ASC;"
     )
     students = cur.fetchall()
 
-    selected_date = request.args.get('date', '')
-    attendance_map = {}
-    if selected_date:
-        cur.execute(
-            'SELECT student_id, present FROM attendance WHERE class_date = %s;',
-            (selected_date,),
-        )
-        att_records = cur.fetchall()
-        for rec in att_records:
-            attendance_map[rec['student_id']] = rec['present']
+    # Calcular últimos 5 domingos
+    today = datetime.today()
+    days_since_sunday = (today.weekday() + 1) % 7
+    last_sunday = today - timedelta(days=days_since_sunday)
+    sundays = [last_sunday - timedelta(weeks=i) for i in range(4, -1, -1)]
+    sunday_strings = [s.strftime('%Y-%m-%d') for s in sundays]
+    sunday_labels = [s.strftime('%d/%m/%Y') for s in sundays]
 
-    # === PEGA AQUÍ EL CÓDIGO PARA TRAER LAS CLASES ===
-    cur.execute(
-        'SELECT * FROM classes;'
-    )  # O 'clases' dependiendo de cómo se llame tu tabla en la base de datos
+    # Mapa anidado: {student_id: {date_str: bool}}
+    attendance_map = {}
+    if sunday_strings:
+        cur.execute(
+            'SELECT student_id, class_date, present FROM attendance WHERE class_date = ANY(%s);',
+            (sunday_strings,),
+        )
+        for rec in cur.fetchall():
+            sid = rec['student_id']
+            cdate = str(rec['class_date'])
+            if sid not in attendance_map:
+                attendance_map[sid] = {}
+            attendance_map[sid][cdate] = rec['present']
+
+    cur.execute('SELECT * FROM classes;')
     clases = cur.fetchall()
-    # ================================================
 
     cur.close()
     conn.close()
 
-    # === MODIFICA ESTA LÍNEA AGREGANDO ", clases=clases" AL FINAL ===
     return render_template(
         'admin_attendance.html',
         students=students,
-        selected_date=selected_date,
+        sunday_strings=sunday_strings,
+        sunday_labels=sunday_labels,
         attendance_map=attendance_map,
         clases=clases,
     )
@@ -825,6 +890,9 @@ def attendance_stats():
     cur.execute("SELECT * FROM attendance_strategies ORDER BY id DESC;")
     strategies = cur.fetchall()
 
+    # Datos para seguimiento individual de alumnos (JSON)
+    individual_json = build_individual_data(cur)
+
     cur.close()
     conn.close()
     return render_template(
@@ -835,6 +903,7 @@ def attendance_stats():
         all_classes=all_classes,
         available_dates=available_dates,
         trend_data_json=trend_data_json,
+        individual_json=individual_json,
     )
 
 @app.route('/delete_material_request/<int:req_id>', methods=['POST'])
@@ -985,6 +1054,9 @@ def ver_asistencia_clase(clase_id):
 
     trend_data_json = json.dumps(trend_data)
 
+    # Datos para seguimiento individual de alumnos (JSON, solo de esta clase)
+    individual_json = build_individual_data(cur, clase_id=clase_id)
+
     cur.close()
     conn.close()
     return render_template(
@@ -996,6 +1068,7 @@ def ver_asistencia_clase(clase_id):
         all_classes=all_classes,
         available_dates=available_dates,
         trend_data_json=trend_data_json,
+        individual_json=individual_json,
     )
 
 if __name__ == '__main__':

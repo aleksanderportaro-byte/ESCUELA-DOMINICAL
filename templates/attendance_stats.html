@@ -125,6 +125,29 @@
             </div>
         </div>
 
+        <!-- SECCIÓN 2c: Seguimiento Individual de Alumno -->
+        <div class="mb-10">
+            <h2 class="text-lg md:text-xl font-bold text-slate-900 mb-4">Seguimiento Individual de Alumno</h2>
+            <div class="border border-slate-200 p-4 md:p-6 rounded-xl bg-slate-50 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="indivClase" class="block text-sm font-medium text-slate-600 mb-1">Filtrar por Clase</label>
+                        <select id="indivClase" onchange="actualizarListaAlumnos()" class="w-full border border-slate-300 p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                            <option value="">Todas las clases</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="indivAlumno" class="block text-sm font-medium text-slate-600 mb-1">Seleccionar Alumno</label>
+                        <select id="indivAlumno" onchange="renderizarGraficoIndividual()" class="w-full border border-slate-300 p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition">
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="border border-slate-200 p-4 md:p-6 rounded-xl bg-white">
+                <canvas id="alumnoChart" height="100"></canvas>
+            </div>
+        </div>
+
         <!-- SECCIÓN 3: Estrategias y Planes de Acción -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- Formulario para agregar estrategia -->
@@ -286,6 +309,141 @@
                 }
             });
         }
+
+        // Gráfico de Seguimiento Individual de Alumno
+        const individualData = {{ individual_json|safe }};
+        let graficoAlumno = null;
+
+        function poblarSelectoresIndividuales() {
+            const selectClase = document.getElementById('indivClase');
+            const selectAlumno = document.getElementById('indivAlumno');
+
+            const clasesMap = {};
+            individualData.alumnos.forEach(function(a) {
+                if (!(a.clase_id in clasesMap)) {
+                    clasesMap[a.clase_id] = a.clase_nombre;
+                }
+            });
+
+            const opcionesClase = Object.keys(clasesMap).map(function(cid) {
+                const valor = cid === 'null' ? 'sin-clase' : cid;
+                const etiqueta = (cid === 'null' ? 'Sin clase' : clasesMap[cid]) || 'Sin clase';
+                return '<option value="' + valor + '">' + etiqueta + '</option>';
+            });
+            selectClase.innerHTML = '<option value="">Todas las clases</option>' + opcionesClase.join('');
+
+            actualizarListaAlumnos();
+        }
+
+        function actualizarListaAlumnos() {
+            const selectClase = document.getElementById('indivClase');
+            const selectAlumno = document.getElementById('indivAlumno');
+            const claseSel = selectClase.value;
+
+            const filtrados = individualData.alumnos.filter(function(a) {
+                if (!claseSel) return true;
+                if (claseSel === 'sin-clase') return a.clase_id === null;
+                return String(a.clase_id) === claseSel;
+            });
+
+            selectAlumno.innerHTML = filtrados.map(function(a) {
+                return '<option value="' + a.id + '">' + a.nombre + '</option>';
+            }).join('');
+
+            if (filtrados.length === 0) {
+                selectAlumno.innerHTML = '<option value="">Sin alumnos</option>';
+            }
+
+            renderizarGraficoIndividual();
+        }
+
+        function renderizarGraficoIndividual() {
+            const selectAlumno = document.getElementById('indivAlumno');
+            const alumnoId = parseInt(selectAlumno.value, 10);
+            const alumno = individualData.alumnos.find(function(a) { return a.id === alumnoId; });
+
+            const fechasLabel = individualData.fechas.map(function(f) {
+                const partes = f.split('-');
+                return partes[2] + '/' + partes[1];
+            });
+
+            const ctx = document.getElementById('alumnoChart');
+
+            if (graficoAlumno) {
+                graficoAlumno.destroy();
+            }
+
+            if (!alumno) {
+                graficoAlumno = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: fechasLabel, datasets: [] },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: true, text: 'No hay alumnos disponibles' }
+                        }
+                    }
+                });
+                return;
+            }
+
+            const datos = individualData.fechas.map(function(f) {
+                const v = alumno.historial[f];
+                if (v === null || v === undefined) return null;
+                return v ? 1 : 0;
+            });
+
+            graficoAlumno = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: fechasLabel,
+                    datasets: [{
+                        label: alumno.nombre,
+                        data: datos,
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.25)',
+                        tension: 0.2,
+                        fill: false,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        borderWidth: 2.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(interno) {
+                                    const v = interno.parsed.y;
+                                    if (v === null || v === undefined) return 'Sin registro';
+                                    return v === 1 ? 'Asistió' : 'Ausente';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 1,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(valor) {
+                                    if (valor === 0) return 'Ausente';
+                                    if (valor === 1) return 'Asistió';
+                                    return '';
+                                }
+                            }
+                        },
+                        x: { title: { display: true, text: 'Domingo (dd/mm)' } }
+                    }
+                }
+            });
+        }
+
+        poblarSelectoresIndividuales();
     </script>
 </body>
 </html>
