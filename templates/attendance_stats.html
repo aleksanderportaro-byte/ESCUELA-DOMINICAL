@@ -120,8 +120,8 @@
         <!-- SECCIÓN 2b: Gráfico de Tendencia de Asistencia -->
         <div class="mb-10">
             <h2 class="text-lg md:text-xl font-bold text-slate-900 mb-4">Tendencia de Asistencia</h2>
-            <div class="border border-slate-200 p-4 md:p-6 rounded-xl bg-slate-50">
-                <canvas id="tendenciaChart" height="100"></canvas>
+            <div style="width: 100%; min-height: 300px; position: relative;" class="border border-slate-200 p-4 md:p-6 rounded-xl bg-slate-50">
+                <canvas id="tendenciaChart"></canvas>
             </div>
         </div>
 
@@ -297,6 +297,7 @@
                 data: { labels: allDates, datasets: datasets },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'top', labels: { usePointStyle: true, padding: 20 } },
                         tooltip: { mode: 'index', intersect: false }
